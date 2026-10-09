@@ -1,0 +1,38 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+spec:
+  replicas: 3                          
+  selector:
+    matchLabels:
+      app: backend                     
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0                
+      maxSurge: 1
+  template:                            
+    metadata:
+      labels:
+        app: backend                   
+    spec:
+      containers:
+        - name: backend
+          image: photo-backend:v1      
+          imagePullPolicy: IfNotPresent  
+          ports:
+            - containerPort: 8000      
+          readinessProbe:              
+            httpGet:
+              path: /api/              
+              port: 8000
+            periodSeconds: 5
+          livenessProbe:               
+            httpGet:
+              path: /api/
+              port: 8000
+            initialDelaySeconds: 5
+          resources:
+            requests: { cpu: 50m, memory: 64Mi }
+            limits:   { cpu: 250m, memory: 128Mi }
