@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# Fonctions communes, chargées par les autres scripts avec : source "$(dirname "$0")/lib.sh"
+
 
 # Contexte kubectl attendu (Docker Desktop par défaut).
-# Pour le cluster de l'école : KUBE_CONTEXT=<nom> ./scripts/deploy.sh dev
+
 KUBE_CONTEXT="${KUBE_CONTEXT:-docker-desktop}"
 
 # Racine du repo, pour que les scripts marchent depuis n'importe quel dossier

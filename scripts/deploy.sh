@@ -16,7 +16,7 @@ require kubectl "fourni avec Docker Desktop"
 check_context
 
 log "1/4 Build des images (tag $TAG)"
-# Docker Desktop (mode kubeadm) partage ses images avec Kubernetes : pas besoin de registry
+# Docker Desktop partage ses images avec Kubernetes : pas besoin de registry
 docker build -q -t "photo-backend:$TAG"  "$ROOT_DIR/backend"  >/dev/null
 docker build -q -t "photo-frontend:$TAG" "$ROOT_DIR/frontend" >/dev/null
 ok "photo-backend:$TAG, photo-frontend:$TAG"
