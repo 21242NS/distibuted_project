@@ -16,7 +16,7 @@ async function loadMessage() {
             throw new Error(`HTTP ${response.status}`);
         }
         const data = await response.json();
-        messageEl.textContent = data.message;
+        messageEl.textContent = `${data.message} (pod: ${data.pod_name})`;
     } catch (err) {
         messageEl.textContent = `Erreur : impossible de joindre l'API (${err.message})`;
         messageEl.classList.add("error");
