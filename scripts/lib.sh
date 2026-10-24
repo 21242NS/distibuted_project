@@ -36,7 +36,7 @@ namespace_for_env() {
 
 url_for_env() {
   case "$1" in
-    prod) echo "https://team3.laboinfo-ecam.be" ;;
+    prod) echo "http://team3.laboinfo-ecam.be" ;;   # la Gateway de l'école ne sert que du HTTP (pas de port 443)
     *)    echo "http://$1.photos.localhost" ;;
   esac
 }
