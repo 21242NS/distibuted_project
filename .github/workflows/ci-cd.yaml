@@ -48,4 +48,12 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}   # utilisé par deploy.sh pour docker login ghcr.io
         run: ./scripts/deploy.sh test "sha-${GITHUB_SHA::7}"
+  deploy-prod:
+    needs: deploy-test
+    if: github.event_name != 'pull_request'
+    runs-on: self-hosted
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+      - run: ./scripts/promote_prod.sh "sha-${GITHUB_SHA::7}"
         
