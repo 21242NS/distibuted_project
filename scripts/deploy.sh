@@ -26,6 +26,17 @@ else
   # Dans GitHub Actions, on se connecte avec le token du job.
   # En local, il faut s'être connecté une fois : docker login ghcr.io
   if [[ -n "${GITHUB_TOKEN:-}" ]]; then
+    # Le runner tourne en service macOS : il n'a pas accès au trousseau (credsStore "desktop").
+    # On utilise une config Docker temporaire, propre au job, sans trousseau : le token y est
+    # stocké dans un fichier, supprimé à la fin du script. La config de l'utilisateur n'est pas touchée.
+    require jq "brew install jq"
+    DOCKER_CONFIG="$(mktemp -d)"
+    export DOCKER_CONFIG
+    trap 'rm -rf "$DOCKER_CONFIG"' EXIT
+    jq 'del(.credsStore, .credHelpers, .auths)' "$HOME/.docker/config.json" > "$DOCKER_CONFIG/config.json"
+    for dir in contexts cli-plugins buildx; do      # garder le contexte Docker Desktop et buildx
+      [[ -e "$HOME/.docker/$dir" ]] && ln -s "$HOME/.docker/$dir" "$DOCKER_CONFIG/$dir"
+    done
     echo "$GITHUB_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin >/dev/null
   fi
   for app in backend frontend; do
