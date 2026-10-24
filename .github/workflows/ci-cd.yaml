@@ -8,9 +8,13 @@ on:
   pull_request:
     branches: [main]                
   workflow_dispatch:                
-concurrency:                        
-  group: deploy-test                
+concurrency:
+  group: deploy-test
   cancel-in-progress: false
+
+permissions:
+  contents: read
+  packages: write                   # pousser les images sur ghcr.io
 
 jobs:
  
@@ -40,6 +44,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4   
 
-      - name: Build, deploy & smoke test
+      - name: Build, push to GHCR, deploy & smoke test
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}   # utilisé par deploy.sh pour docker login ghcr.io
         run: ./scripts/deploy.sh test "sha-${GITHUB_SHA::7}"
         

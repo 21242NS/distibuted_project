@@ -1,0 +1,18 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: team3                 # namespace existant (pas de namespace.yaml)
+resources:
+  - ../../base
+  - httproute.yaml
+patches:
+  - patch: |-                    # retire l'Ingress Traefik de la base, inutile sur OVH
+      $patch: delete
+      apiVersion: networking.k8s.io/v1
+      kind: Ingress
+      metadata:
+        name: photos
+images:                          # les images locales sont remplacées par celles de GHCR
+  - name: photo-backend
+    newName: ghcr.io/21242ns/photo-backend
+  - name: photo-frontend
+    newName: ghcr.io/21242ns/photo-frontend
