@@ -14,7 +14,9 @@ class User(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=False)
     email: Mapped[str] = mapped_column(String(255), unique=True)
     name: Mapped[str] = mapped_column(String(100))
-    password_hash: Mapped[str] = mapped_column(String(255))  # pour l'authentification future
+    # Pour l'authentification future. Nullable (« expand ») : les utilisateurs existants n'en ont pas,
+    # et l'ancienne version du code continue de fonctionner pendant le rolling update.
+    password_hash: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
 
 class Photo(Base):
