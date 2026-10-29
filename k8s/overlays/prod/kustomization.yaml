@@ -11,6 +11,19 @@ patches:
       kind: Ingress
       metadata:
         name: photos
+  - patch: |-                    # le compte team3 n'a pas le droit de gérer les HPA sur le cluster de l'école
+      $patch: delete
+      apiVersion: autoscaling/v2
+      kind: HorizontalPodAutoscaler
+      metadata:
+        name: backend
+  - patch: |-                    # sans HPA : nombre de pods backend fixe en prod
+      - op: add
+        path: /spec/replicas
+        value: 3
+    target:
+      kind: Deployment
+      name: backend
 images:                          # les images locales sont remplacées par celles de GHCR
   - name: photo-backend
     newName: ghcr.io/21242ns/photo-backend
