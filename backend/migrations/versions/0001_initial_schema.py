@@ -24,7 +24,6 @@ def upgrade() -> None:
         sa.Column("id", sa.Integer, primary_key=True, autoincrement=False),
         sa.Column("email", sa.String(255), nullable=False, unique=True),
         sa.Column("name", sa.String(100), nullable=False),
-        sa.Column("password_hash", sa.String(255), nullable=False),  # pour l'authentification future
     )
     op.create_table(
         "photos",
