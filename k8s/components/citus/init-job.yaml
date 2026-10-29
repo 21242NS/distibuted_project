@@ -1,0 +1,39 @@
+# Configure le cluster Citus : enregistre les workers auprès du coordinator et active la réplication.
+# Idempotent : relancé à chaque déploiement (scripts/lib.sh) sans effet de bord.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: citus-init
+  labels: { app: citus-init, tier: database }
+spec:
+  backoffLimit: 6
+  ttlSecondsAfterFinished: 3600
+  template:
+    metadata:
+      labels: { app: citus-init, tier: database }
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: init
+          image: citusdata/citus:alpine@sha256:982a8483148d62b7d0dfaf3014f341543f53078e94dc47241a19b4fcc2391e00
+          env:
+            - { name: WORKERS, value: "2" }          # doit correspondre aux replicas de citus-worker
+          command: ["sh", "-c"]
+          args:
+            - |
+              set -e
+              until pg_isready -h citus-coordinator -U postgres -d photos; do sleep 2; done
+              i=0
+              while [ $i -lt $WORKERS ]; do
+                until pg_isready -h citus-worker-$i.citus-workers -U postgres -d photos; do sleep 2; done
+                i=$((i + 1))
+              done
+              psql -v ON_ERROR_STOP=1 -h citus-coordinator -U postgres -d photos                 -c "SELECT citus_set_coordinator_host('citus-coordinator-0.citus-coordinator', 5432);"
+              i=0
+              while [ $i -lt $WORKERS ]; do
+                psql -v ON_ERROR_STOP=1 -h citus-coordinator -U postgres -d photos                   -c "SELECT citus_add_node('citus-worker-$i.citus-workers', 5432);"
+                i=$((i + 1))
+              done
+              # Réplication : chaque shard sera stocké sur 2 workers
+              psql -v ON_ERROR_STOP=1 -h citus-coordinator -U postgres -d photos                 -c "ALTER SYSTEM SET citus.shard_replication_factor = 2;"                 -c "SELECT pg_reload_conf();"
+              psql -h citus-coordinator -U postgres -d photos -c "SELECT * FROM citus_get_active_worker_nodes();"

@@ -77,14 +77,22 @@ load_env() {
 
 # Applique l'overlay avec le tag donné, attend le rolling update, lance le smoke test
 deploy_overlay() {
-  local tag="$1"
+  local tag="$1" rendered
 
   log "Déploiement de '$ENV' (cluster $KUBE_CONTEXT, namespace $NAMESPACE, tag $tag)"
-  # kustomize génère le YAML final, sed impose le nom complet + tag des images, kubectl l'applique
-  kubectl kustomize "$OVERLAY" \
+  # kustomize génère le YAML final, sed impose le nom complet + tag des images
+  rendered="$(kubectl kustomize "$OVERLAY" \
     | sed -E -e "s#image: [^[:space:]]*photo-backend:[^[:space:]]*#image: ${IMAGE_PREFIX}photo-backend:${tag}#" \
-             -e "s#image: [^[:space:]]*photo-frontend:[^[:space:]]*#image: ${IMAGE_PREFIX}photo-frontend:${tag}#" \
-    | k apply -f -
+             -e "s#image: [^[:space:]]*photo-frontend:[^[:space:]]*#image: ${IMAGE_PREFIX}photo-frontend:${tag}#")"
+
+  # Si l'environnement a une base de données : la base d'abord, puis les migrations, puis l'app
+  if grep -q "name: citus-coordinator" <<<"$rendered"; then
+    deploy_database "$rendered"
+    run_migrations "${IMAGE_PREFIX}photo-backend:${tag}"
+  fi
+
+  log "Application"
+  k apply -f - <<<"$rendered"
 
   log "Attente du rolling update"
   k rollout status deployment/backend  -n "$NAMESPACE" --timeout=180s
@@ -94,4 +102,38 @@ deploy_overlay() {
   log "Smoke test"
   "$ROOT_DIR/scripts/smoke-test.sh" "$URL"
   ok "Déployé : $URL"
+}
+
+# ── Base de données ─────────────────────────────────────────────────────────
+
+# Applique uniquement les ressources de la base (label tier=database) et attend qu'elle soit prête
+deploy_database() {
+  local rendered="$1"
+  log "Base de données Citus (coordinator + workers)"
+  k get namespace "$NAMESPACE" >/dev/null 2>&1 || k create namespace "$NAMESPACE"
+  k delete job citus-init -n "$NAMESPACE" --ignore-not-found >/dev/null   # un Job est immuable : on le recrée
+  k apply -l tier=database -f - <<<"$rendered"
+  k rollout status statefulset/citus-coordinator -n "$NAMESPACE" --timeout=300s
+  k rollout status statefulset/citus-worker      -n "$NAMESPACE" --timeout=300s
+  k wait --for=condition=complete job/citus-init -n "$NAMESPACE" --timeout=300s \
+    || { k logs job/citus-init -n "$NAMESPACE" --tail=30 || true; fail "initialisation de Citus échouée"; }
+  ok "base de données prête"
+}
+
+# Lance "alembic upgrade head" avec l'image qui va être déployée, AVANT le rolling update.
+# En cas d'échec : on s'arrête, l'ancienne version de l'app continue de tourner.
+run_migrations() {
+  local image="$1" succeeded failed
+  log "Migrations de schéma (alembic upgrade head)"
+  k delete job db-migrate -n "$NAMESPACE" --ignore-not-found >/dev/null
+  sed "s#BACKEND_IMAGE#${image}#" "$ROOT_DIR/k8s/jobs/db-migrate.yaml" | k apply -n "$NAMESPACE" -f - >/dev/null
+  for _ in $(seq 1 90); do
+    succeeded="$(k get job db-migrate -n "$NAMESPACE" -o jsonpath='{.status.succeeded}')"
+    failed="$(k get job db-migrate -n "$NAMESPACE" -o jsonpath='{.status.failed}')"
+    [[ "${succeeded:-0}" -ge 1 || "${failed:-0}" -ge 1 ]] && break
+    sleep 2
+  done
+  k logs job/db-migrate -n "$NAMESPACE" --tail=20 2>/dev/null | sed 's/^/    /' || true
+  [[ "${succeeded:-0}" -ge 1 ]] || fail "migration échouée : déploiement annulé, l'ancienne version continue de tourner"
+  ok "migrations appliquées"
 }

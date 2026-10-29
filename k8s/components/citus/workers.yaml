@@ -1,0 +1,61 @@
+# Workers Citus : stockent les shards. Chaque shard existe sur 2 workers (réplication).
+apiVersion: v1
+kind: Service
+metadata:
+  name: citus-workers
+  labels: { app: citus-worker, tier: database }
+spec:
+  publishNotReadyAddresses: true    # le DNS existe dès la création du pod
+  clusterIP: None                   # headless : un nom DNS par pod (citus-worker-0.citus-workers)
+  selector: { app: citus-worker }
+  ports:
+    - name: postgres
+      port: 5432
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: citus-worker
+  labels: { app: citus-worker, tier: database }
+spec:
+  serviceName: citus-workers
+  replicas: 2
+  selector:
+    matchLabels: { app: citus-worker }
+  template:
+    metadata:
+      labels: { app: citus-worker, tier: database }
+    spec:
+      containers:
+        - name: postgres
+          image: citusdata/citus:alpine@sha256:982a8483148d62b7d0dfaf3014f341543f53078e94dc47241a19b4fcc2391e00      # multi-arch (amd64 + arm64), figée par son digest
+          ports:
+            - name: postgres
+              containerPort: 5432
+          env:
+            - { name: POSTGRES_DB, value: photos }
+            # Connexions internes au cluster sans mot de passe : simple pour le projet,
+            # limite documentée (en production : scram + .pgpass ou certificats).
+            - { name: POSTGRES_HOST_AUTH_METHOD, value: trust }
+            - { name: PGDATA, value: /var/lib/postgresql/data/pgdata }
+          readinessProbe:               # -h 127.0.0.1 : en TCP, donc faux tant que l'init n'est pas finie
+            exec: { command: ["pg_isready", "-h", "127.0.0.1", "-U", "postgres", "-d", "photos"] }
+            periodSeconds: 5
+          livenessProbe:
+            exec: { command: ["pg_isready", "-h", "127.0.0.1", "-U", "postgres", "-d", "photos"] }
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            failureThreshold: 6
+          resources:
+            requests: { cpu: 100m, memory: 256Mi }
+            limits:   { cpu: "1", memory: 1Gi }
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+  volumeClaimTemplates:                 # un volume persistant par pod, qui le suit s'il est recréé
+    - metadata:
+        name: data
+      spec:
+        accessModes: [ReadWriteOnce]
+        resources:
+          requests: { storage: 1Gi }

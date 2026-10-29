@@ -12,6 +12,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 
 COPY app/ app/
+# Migrations de schéma (lancées par le Job db-migrate avant chaque rolling update)
+COPY alembic.ini .
+COPY migrations/ migrations/
 
 
 RUN useradd --create-home appuser

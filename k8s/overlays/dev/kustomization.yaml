@@ -5,6 +5,8 @@ resources:
   - namespace.yaml
   - ../../base
   - servicemonitor.yaml
+components:
+  - ../../components/citus     # base de données Citus
 patches:
   - path: ingress-patch.yaml
     target:

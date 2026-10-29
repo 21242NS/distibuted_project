@@ -1,0 +1,10 @@
+# Base de données PostgreSQL + Citus (sharding + réplication).
+# Incluse par les overlays qui ont une BDD :  components: [../../components/citus]
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+resources:
+  - coordinator.yaml
+  - workers.yaml
+  - init-job.yaml
+patches:
+  - path: backend-db-patch.yaml     # donne DATABASE_URL au backend

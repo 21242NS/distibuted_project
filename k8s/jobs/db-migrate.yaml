@@ -1,0 +1,24 @@
+# Migrations de schéma (Alembic), lancées par scripts/lib.sh AVANT le rolling update.
+# BACKEND_IMAGE est remplacé par l'image exacte qui va être déployée.
+# Si la migration échoue, le déploiement s'arrête : l'ancienne version continue de tourner.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: db-migrate
+  labels: { app: db-migrate, tier: migration }
+spec:
+  backoffLimit: 0
+  ttlSecondsAfterFinished: 3600
+  template:
+    metadata:
+      labels: { app: db-migrate, tier: migration }
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: migrate
+          image: BACKEND_IMAGE
+          imagePullPolicy: IfNotPresent
+          command: ["alembic", "upgrade", "head"]
+          env:
+            - name: DATABASE_URL
+              value: postgresql+psycopg://postgres@citus-coordinator:5432/photos
