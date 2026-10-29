@@ -1,0 +1,41 @@
+# Valeurs Helm de kube-prometheus-stack (Prometheus + Grafana + exporters) pour le cluster local.
+# Installé par scripts/setup-cluster.sh dans le namespace "monitoring".
+
+grafana:
+  # Le mot de passe admin est passé par setup-cluster.sh (--set grafana.adminPassword=...)
+  ingress:
+    enabled: true
+    ingressClassName: traefik            # le MÊME Ingress Controller que l'application
+    hosts:
+      - grafana.photos.localhost
+  sidecar:
+    dashboards:
+      enabled: true
+      label: grafana_dashboard           # toute ConfigMap avec ce label est importée comme dashboard
+      searchNamespace: ALL
+
+prometheus:
+  prometheusSpec:
+    # Lire TOUS les ServiceMonitors du cluster (pas seulement ceux créés par ce chart)
+    serviceMonitorSelectorNilUsesHelmValues: false
+    podMonitorSelectorNilUsesHelmValues: false
+    retention: 3d
+    resources:
+      requests: { cpu: 100m, memory: 400Mi }
+
+alertmanager:
+  enabled: false                         # pas d'alertes pour le projet : économise de la mémoire
+
+# Composants du control plane non accessibles sur Docker Desktop : évite des cibles "down" inutiles
+kubeEtcd:
+  enabled: false
+kubeControllerManager:
+  enabled: false
+kubeScheduler:
+  enabled: false
+kubeProxy:
+  enabled: false
+
+prometheus-node-exporter:
+  hostRootFsMount:
+    enabled: false                       # sinon node-exporter plante sur Docker Desktop

@@ -2,10 +2,13 @@ apiVersion: v1
 kind: Service
 metadata:
   name: backend
+  labels:
+    app: backend          # le ServiceMonitor de Prometheus sélectionne le Service par ce label
 spec:
   type: ClusterIP
   selector:
     app: backend
   ports:
-    - port: 8000
+    - name: http          # le ServiceMonitor désigne le port par son nom
+      port: 8000
       targetPort: 8000

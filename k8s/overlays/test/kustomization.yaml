@@ -4,6 +4,7 @@ namespace: test
 resources:
   - namespace.yaml
   - ../../base
+  - servicemonitor.yaml
 patches:
   - path: ingress-patch.yaml
     target:

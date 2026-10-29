@@ -3,7 +3,7 @@ kind: Deployment
 metadata:
   name: backend
 spec:
-  replicas: 3                          
+  # pas de "replicas" : c'est l'HPA (hpa.yaml) qui décide du nombre de pods
   selector:
     matchLabels:
       app: backend                     
@@ -27,15 +27,16 @@ spec:
                 fieldRef:
                   fieldPath: metadata.name
           ports:
-            - containerPort: 8000      
-          readinessProbe:              
+            - name: http
+              containerPort: 8000
+          readinessProbe:              # prêt à recevoir du trafic ?
             httpGet:
-              path: /api/              
+              path: /api/ready
               port: 8000
             periodSeconds: 5
-          livenessProbe:               
+          livenessProbe:               # toujours vivant ? sinon redémarrage
             httpGet:
-              path: /api/
+              path: /api/health
               port: 8000
             initialDelaySeconds: 5
           resources:

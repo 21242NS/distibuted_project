@@ -1,0 +1,14 @@
+# Dit à Prometheus (kube-prometheus-stack) de lire /metrics du backend toutes les 15 s.
+# Uniquement en local : le type ServiceMonitor n'existe pas sur le cluster de l'école.
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: backend
+spec:
+  selector:
+    matchLabels:
+      app: backend
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 15s

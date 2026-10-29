@@ -1,0 +1,151 @@
+{
+  "title": "Photo Library",
+  "uid": "photo-library",
+  "description": "Charge, santé et scaling de l'application Photo Library",
+  "tags": ["photo-library"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "10s",
+  "time": { "from": "now-30m", "to": "now" },
+  "templating": {
+    "list": [
+      {
+        "name": "datasource",
+        "label": "Source",
+        "type": "datasource",
+        "query": "prometheus",
+        "hide": 2
+      },
+      {
+        "name": "namespace",
+        "label": "Environnement",
+        "type": "query",
+        "datasource": { "type": "prometheus", "uid": "${datasource}" },
+        "query": { "query": "label_values(kube_deployment_status_replicas{deployment=\"backend\"}, namespace)", "refId": "ns" },
+        "definition": "label_values(kube_deployment_status_replicas{deployment=\"backend\"}, namespace)",
+        "refresh": 2,
+        "current": { "text": "test", "value": "test" },
+        "includeAll": false,
+        "multi": false
+      }
+    ]
+  },
+  "panels": [
+    {
+      "type": "stat",
+      "title": "Pods backend prêts",
+      "gridPos": { "x": 0, "y": 0, "w": 6, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "targets": [
+        { "refId": "A", "expr": "sum(kube_pod_status_ready{namespace=\"$namespace\", condition=\"true\", pod=~\"backend-.*\"})" }
+      ],
+      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "mode": "absolute", "steps": [ { "color": "red", "value": null }, { "color": "orange", "value": 1 }, { "color": "green", "value": 2 } ] } }, "overrides": [] },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background", "graphMode": "none" }
+    },
+    {
+      "type": "stat",
+      "title": "Replicas voulues par l'HPA",
+      "gridPos": { "x": 6, "y": 0, "w": 6, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "targets": [
+        { "refId": "A", "expr": "sum(kube_horizontalpodautoscaler_status_desired_replicas{namespace=\"$namespace\", horizontalpodautoscaler=\"backend\"})" }
+      ],
+      "fieldConfig": { "defaults": { "color": { "mode": "fixed", "fixedColor": "blue" } }, "overrides": [] },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background", "graphMode": "area" }
+    },
+    {
+      "type": "stat",
+      "title": "Requêtes / s (API)",
+      "gridPos": { "x": 12, "y": 0, "w": 6, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "targets": [
+        { "refId": "A", "expr": "sum(rate(http_requests_total{namespace=\"$namespace\", handler!~\"/metrics|/api/health|/api/ready\"}[1m]))" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "reqps", "decimals": 1, "color": { "mode": "fixed", "fixedColor": "purple" } }, "overrides": [] },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background", "graphMode": "area" }
+    },
+    {
+      "type": "stat",
+      "title": "Taux d'erreurs 5xx",
+      "gridPos": { "x": 18, "y": 0, "w": 6, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "targets": [
+        { "refId": "A", "expr": "(sum(rate(http_requests_total{namespace=\"$namespace\", status=\"5xx\"}[5m])) or vector(0)) / clamp_min(sum(rate(http_requests_total{namespace=\"$namespace\"}[5m])), 0.001)" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "percentunit", "decimals": 2, "color": { "mode": "thresholds" }, "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "orange", "value": 0.01 }, { "color": "red", "value": 0.05 } ] } }, "overrides": [] },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background", "graphMode": "none" }
+    },
+    {
+      "type": "timeseries",
+      "title": "Requêtes / s par route",
+      "gridPos": { "x": 0, "y": 4, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "targets": [
+        { "refId": "A", "expr": "sum by (handler) (rate(http_requests_total{namespace=\"$namespace\", handler!~\"/metrics|/api/health|/api/ready\"}[1m]))", "legendFormat": "{{handler}}" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "reqps", "custom": { "fillOpacity": 15 } }, "overrides": [] }
+    },
+    {
+      "type": "timeseries",
+      "title": "Latence p95 (secondes)",
+      "gridPos": { "x": 12, "y": 4, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "targets": [
+        { "refId": "A", "expr": "histogram_quantile(0.95, sum by (le, handler) (rate(http_request_duration_seconds_bucket{namespace=\"$namespace\", handler!~\"/metrics|/api/health|/api/ready\"}[5m])))", "legendFormat": "{{handler}}" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "s", "custom": { "fillOpacity": 10 } }, "overrides": [] }
+    },
+    {
+      "type": "timeseries",
+      "title": "CPU backend par pod (% des requests · l'HPA vise 60 %)",
+      "gridPos": { "x": 0, "y": 12, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "targets": [
+        { "refId": "A", "expr": "100 * sum by (pod) (rate(container_cpu_usage_seconds_total{namespace=\"$namespace\", container=\"backend\"}[1m])) / sum by (pod) (kube_pod_container_resource_requests{namespace=\"$namespace\", container=\"backend\", resource=\"cpu\"})", "legendFormat": "{{pod}}" }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "custom": { "fillOpacity": 10, "thresholdsStyle": { "mode": "line+area" } },
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "transparent", "value": null }, { "color": "red", "value": 60 } ] }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Mémoire par pod",
+      "gridPos": { "x": 12, "y": 12, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "targets": [
+        { "refId": "A", "expr": "sum by (pod) (container_memory_working_set_bytes{namespace=\"$namespace\", container=~\"backend|frontend\"})", "legendFormat": "{{pod}}" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "bytes", "custom": { "fillOpacity": 10 } }, "overrides": [] }
+    },
+    {
+      "type": "timeseries",
+      "title": "Nombre de pods disponibles par Deployment",
+      "gridPos": { "x": 0, "y": 20, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "targets": [
+        { "refId": "A", "expr": "sum by (deployment) (kube_deployment_status_replicas_available{namespace=\"$namespace\"})", "legendFormat": "{{deployment}}" },
+        { "refId": "B", "expr": "sum(kube_horizontalpodautoscaler_status_desired_replicas{namespace=\"$namespace\", horizontalpodautoscaler=\"backend\"})", "legendFormat": "backend (voulu par l'HPA)" }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "short", "decimals": 0, "custom": { "fillOpacity": 0, "lineInterpolation": "stepAfter", "lineWidth": 2 } },
+        "overrides": [ { "matcher": { "id": "byName", "options": "backend (voulu par l'HPA)" }, "properties": [ { "id": "custom.lineStyle", "value": { "fill": "dash", "dash": [8, 6] } } ] } ]
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Redémarrages de conteneurs (santé)",
+      "gridPos": { "x": 12, "y": 20, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "targets": [
+        { "refId": "A", "expr": "sum by (pod) (increase(kube_pod_container_status_restarts_total{namespace=\"$namespace\"}[10m]))", "legendFormat": "{{pod}}" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short", "decimals": 0, "custom": { "fillOpacity": 10 } }, "overrides": [] }
+    }
+  ]
+}
