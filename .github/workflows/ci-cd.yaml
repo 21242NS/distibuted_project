@@ -14,7 +14,7 @@ concurrency:
 
 permissions:
   contents: read
-  packages: write                   # pousser les images sur ghcr.io
+  packages: write
 
 jobs:
  
@@ -46,7 +46,7 @@ jobs:
 
       - name: Build, push to GHCR, deploy & smoke test
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}   # utilisé par deploy.sh pour docker login ghcr.io
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: ./scripts/deploy.sh test "sha-${GITHUB_SHA::7}"
   deploy-prod:
     needs: deploy-test

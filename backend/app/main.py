@@ -5,7 +5,6 @@ from app.routers import health
 from prometheus_fastapi_instrumentator import Instrumentator
 
 
-
 app = FastAPI()
 app.add_middleware(
     CORSMiddleware,

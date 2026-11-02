@@ -25,7 +25,6 @@ def test_photo_is_saved_with_generated_id():
 
 
 def test_ready_without_database(monkeypatch):
-    # Sans DATABASE_URL (tests, dev local), /api/ready répond quand même
     from fastapi.testclient import TestClient
 
     from app.main import app

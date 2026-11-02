@@ -11,7 +11,7 @@ spec:
     - team3.laboinfo-ecam.be
   rules:
     - matches:
-        - path: { type: PathPrefix, value: /api }   # le chemin le plus long est prioritaire
+        - path: { type: PathPrefix, value: /api }
       backendRefs:
         - name: backend
           port: 8000

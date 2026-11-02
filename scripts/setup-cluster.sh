@@ -1,9 +1,4 @@
 #!/usr/bin/env bash
-# Prépare le cluster local (Docker Desktop, kubeadm) : à lancer une fois, relançable sans risque.
-# Installe : Traefik (Ingress Controller), metrics-server (CPU/RAM, HPA),
-#            kube-prometheus-stack (Prometheus + Grafana) et le dashboard "Photo Library".
-# Usage : ./scripts/setup-cluster.sh
-#         GRAFANA_ADMIN_PASSWORD=... ./scripts/setup-cluster.sh   (défaut : admin)
 set -euo pipefail
 source "$(dirname "$0")/lib.sh"
 
@@ -17,7 +12,7 @@ docker info >/dev/null 2>&1 || fail "Docker ne tourne pas : lance Docker Desktop
 ok "docker, kubectl, helm"
 
 log "2/6 Vérification du cluster"
-load_env dev   # setup = cluster local uniquement
+load_env dev
 check_context
 k wait --for=condition=Ready node --all --timeout=60s >/dev/null \
   || fail "le nœud n'est pas Ready (Docker Desktop > Settings > Kubernetes)"
@@ -31,10 +26,9 @@ helm repo update >/dev/null
 ok "traefik, metrics-server, prometheus-community"
 
 log "4/6 Ingress Controller Traefik"
-# upgrade --install = installe si absent, met à jour sinon (idempotent)
 helm upgrade --install traefik traefik/traefik --kube-context "$KUBE_CONTEXT" \
   --namespace traefik --create-namespace --wait >/dev/null
-for _ in $(seq 1 15); do              # quelques secondes si le pod Traefik vient d'être remplacé
+for _ in $(seq 1 15); do
   code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 3 "$URL/")" || true
   [[ "$code" != "000" ]] && break
   sleep 2
@@ -43,7 +37,6 @@ done
 ok "Traefik répond sur le port 80"
 
 log "5/6 metrics-server (CPU/RAM des pods, nécessaire à l'HPA)"
-# Docker Desktop : le kubelet a un certificat auto-signé → --kubelet-insecure-tls
 helm upgrade --install metrics-server metrics-server/metrics-server --kube-context "$KUBE_CONTEXT" \
   --namespace kube-system --set 'args={--kubelet-insecure-tls}' --wait >/dev/null
 ok "metrics-server installé (kubectl top pods disponible d'ici ~1 min)"
@@ -54,7 +47,6 @@ helm upgrade --install monitoring prometheus-community/kube-prometheus-stack --k
   -f "$ROOT_DIR/platform/monitoring-values.yaml" \
   --set grafana.adminPassword="$GRAFANA_ADMIN_PASSWORD" \
   --wait --timeout 10m >/dev/null
-# Le dashboard versionné dans Git, importé automatiquement par le sidecar de Grafana (label grafana_dashboard)
 k create configmap grafana-dashboard-photo-library -n monitoring \
   --from-file="$ROOT_DIR/platform/grafana-dashboards/photo-library.json" \
   --dry-run=client -o yaml \

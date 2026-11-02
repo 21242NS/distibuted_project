@@ -1,7 +1,4 @@
 #!/usr/bin/env bash
-# Promeut en production (cluster de l'école) une version DÉJÀ validée en test.
-# Ne reconstruit rien : déploie exactement l'image poussée sur GHCR par deploy.sh test ("build once, deploy many").
-# Usage : ./scripts/promote_prod.sh <tag>     ex: ./scripts/promote_prod.sh sha-abc1234
 set -euo pipefail
 source "$(dirname "$0")/lib.sh"
 

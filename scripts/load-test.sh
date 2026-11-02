@@ -1,7 +1,4 @@
 #!/usr/bin/env bash
-# Génère de la charge sur l'API pour déclencher l'HPA (démo du scaling automatique).
-# Usage : ./scripts/load-test.sh [env] [durée] [connexions]     ex: ./scripts/load-test.sh test 3m 50
-# À observer pendant ce temps : Grafana (dashboard Photo Library) ou kubectl get hpa -n <env> -w
 set -euo pipefail
 source "$(dirname "$0")/lib.sh"
 

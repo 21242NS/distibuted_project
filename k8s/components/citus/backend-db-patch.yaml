@@ -1,4 +1,3 @@
-# Le backend se connecte au coordinator Citus (qui route vers les shards).
 apiVersion: apps/v1
 kind: Deployment
 metadata:

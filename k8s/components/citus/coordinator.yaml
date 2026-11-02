@@ -1,11 +1,10 @@
-# Coordinator Citus : reçoit les requêtes de l'app et les route vers les shards des workers.
 apiVersion: v1
 kind: Service
 metadata:
   name: citus-coordinator
   labels: { app: citus-coordinator, tier: database }
 spec:
-  clusterIP: None                   # headless : un nom DNS par pod (citus-coordinator-0.citus-coordinator)
+  clusterIP: None
   selector: { app: citus-coordinator }
   ports:
     - name: postgres
@@ -27,17 +26,15 @@ spec:
     spec:
       containers:
         - name: postgres
-          image: citusdata/citus:alpine@sha256:982a8483148d62b7d0dfaf3014f341543f53078e94dc47241a19b4fcc2391e00      # multi-arch (amd64 + arm64), figée par son digest
+          image: citusdata/citus:alpine@sha256:982a8483148d62b7d0dfaf3014f341543f53078e94dc47241a19b4fcc2391e00
           ports:
             - name: postgres
               containerPort: 5432
           env:
             - { name: POSTGRES_DB, value: photos }
-            # Connexions internes au cluster sans mot de passe : simple pour le projet,
-            # limite documentée (en production : scram + .pgpass ou certificats).
             - { name: POSTGRES_HOST_AUTH_METHOD, value: trust }
             - { name: PGDATA, value: /var/lib/postgresql/data/pgdata }
-          readinessProbe:               # -h 127.0.0.1 : en TCP, donc faux tant que l'init n'est pas finie
+          readinessProbe:
             exec: { command: ["pg_isready", "-h", "127.0.0.1", "-U", "postgres", "-d", "photos"] }
             periodSeconds: 5
           livenessProbe:
@@ -51,7 +48,7 @@ spec:
           volumeMounts:
             - name: data
               mountPath: /var/lib/postgresql/data
-  volumeClaimTemplates:                 # un volume persistant par pod, qui le suit s'il est recréé
+  volumeClaimTemplates:
     - metadata:
         name: data
       spec:

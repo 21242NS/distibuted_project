@@ -2,7 +2,7 @@ from fastapi.testclient import TestClient
 
 from app.main import app
 
-client = TestClient(app)   # appelle l'app directement, sans lancer uvicorn
+client = TestClient(app)
 
 
 def test_hello_returns_200():
@@ -12,5 +12,5 @@ def test_hello_returns_200():
 
 
 def test_pod_name_defaults_to_local(monkeypatch):
-    monkeypatch.delenv("POD_NAME", raising=False)   # simule l'absence de la variable
+    monkeypatch.delenv("POD_NAME", raising=False)
     assert client.get("/api/").json()["pod_name"] == "local"

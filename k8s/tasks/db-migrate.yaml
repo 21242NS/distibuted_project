@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: db-migrate
+  labels: { app: db-migrate, tier: migration }
+spec:
+  restartPolicy: Never
+  containers:
+    - name: migrate
+      image: BACKEND_IMAGE
+      imagePullPolicy: IfNotPresent
+      command: ["alembic", "upgrade", "head"]
+      env:
+        - name: DATABASE_URL
+          value: postgresql+psycopg://postgres@citus-coordinator:5432/photos
+      resources:
+        requests: { cpu: 50m, memory: 64Mi }
+        limits:   { cpu: 500m, memory: 256Mi }

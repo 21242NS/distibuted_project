@@ -1,30 +1,32 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
-namespace: team3                 # namespace existant (pas de namespace.yaml)
+namespace: team3
 resources:
   - ../../base
   - httproute.yaml
+components:
+  - ../../components/citus
 patches:
-  - patch: |-                    # retire l'Ingress Traefik de la base, inutile sur OVH
+  - patch: |-
       $patch: delete
       apiVersion: networking.k8s.io/v1
       kind: Ingress
       metadata:
         name: photos
-  - patch: |-                    # le compte team3 n'a pas le droit de gérer les HPA sur le cluster de l'école
+  - patch: |-
       $patch: delete
       apiVersion: autoscaling/v2
       kind: HorizontalPodAutoscaler
       metadata:
         name: backend
-  - patch: |-                    # sans HPA : nombre de pods backend fixe en prod
+  - patch: |-
       - op: add
         path: /spec/replicas
         value: 3
     target:
       kind: Deployment
       name: backend
-images:                          # les images locales sont remplacées par celles de GHCR
+images:
   - name: photo-backend
     newName: ghcr.io/21242ns/photo-backend
   - name: photo-frontend

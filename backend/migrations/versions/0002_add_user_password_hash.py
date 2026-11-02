@@ -18,7 +18,6 @@ depends_on = None
 
 
 def upgrade() -> None:
-    # users est une table de référence Citus : la colonne est ajoutée sur toutes les copies
     op.add_column("users", sa.Column("password_hash", sa.String(255), nullable=True))
 
 

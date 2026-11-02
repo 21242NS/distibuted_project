@@ -15,4 +15,4 @@ spec:
         name: cpu
         target:
           type: Utilization
-          averageUtilization: 60     # % des requests CPU (50m) → au-delà de 30m par pod en moyenne, on ajoute des pods
+          averageUtilization: 60

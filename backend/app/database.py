@@ -8,8 +8,6 @@ class Base(DeclarativeBase):
     """Classe parente de tous les modèles (tables)."""
 
 
-# Connexion au coordinator Citus. pool_pre_ping : vérifie la connexion avant de la réutiliser
-# (utile après un redémarrage de la base).
 engine = (
     create_engine(DATABASE_URL, pool_pre_ping=True, connect_args={"connect_timeout": 3})
     if DATABASE_URL
