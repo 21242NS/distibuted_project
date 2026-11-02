@@ -1,0 +1,36 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: citus-init
+  labels: { app: citus-init, tier: task }
+spec:
+  restartPolicy: Never
+  containers:
+    - name: init
+      image: citusdata/citus:alpine@sha256:982a8483148d62b7d0dfaf3014f341543f53078e94dc47241a19b4fcc2391e00
+      env:
+        - { name: WORKERS, value: "WORKER_COUNT" }
+      command: ["sh", "-c"]
+      args:
+        - |
+          set -e
+          until pg_isready -q -h citus-coordinator -U postgres -d photos; do sleep 2; done
+          i=0
+          while [ $i -lt $WORKERS ]; do
+            until pg_isready -q -h citus-worker-$i.citus-workers -U postgres -d photos; do sleep 2; done
+            i=$((i + 1))
+          done
+          sql() { psql -v ON_ERROR_STOP=1 -qAt -h citus-coordinator -U postgres -d photos -c "$1"; }
+          sql "SELECT citus_set_coordinator_host('citus-coordinator-0.citus-coordinator', 5432);" >/dev/null
+          i=0
+          while [ $i -lt $WORKERS ]; do
+            sql "SELECT citus_add_node('citus-worker-$i.citus-workers', 5432);" >/dev/null
+            i=$((i + 1))
+          done
+          sql "ALTER SYSTEM SET citus.shard_replication_factor = 2;" >/dev/null
+          sql "SELECT pg_reload_conf();" >/dev/null
+          echo "workers actifs : $(sql 'SELECT count(*) FROM citus_get_active_worker_nodes();')"
+          echo "réplication des shards : $(sql 'SHOW citus.shard_replication_factor;')"
+      resources:
+        requests: { cpu: 50m, memory: 64Mi }
+        limits:   { cpu: 500m, memory: 256Mi }

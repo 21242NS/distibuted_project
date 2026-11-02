@@ -100,34 +100,27 @@ deploy_database() {
   ok "base de données prête"
 }
 
-psql_coordinator() {
-  k exec -n "$NAMESPACE" citus-coordinator-0 -c postgres -- \
-    psql -v ON_ERROR_STOP=1 -U postgres -d photos -qAt -c "$1"
-}
-
 init_citus() {
-  local workers i
+  local workers
   workers="$(k get statefulset citus-worker -n "$NAMESPACE" -o jsonpath='{.spec.replicas}')"
-  psql_coordinator "SELECT citus_set_coordinator_host('citus-coordinator-0.citus-coordinator', 5432);" >/dev/null
-  for ((i = 0; i < workers; i++)); do
-    psql_coordinator "SELECT citus_add_node('citus-worker-$i.citus-workers', 5432);" >/dev/null
-  done
-  psql_coordinator "ALTER SYSTEM SET citus.shard_replication_factor = 2;" >/dev/null
-  psql_coordinator "SELECT pg_reload_conf();" >/dev/null
-  ok "Citus : $(psql_coordinator "SELECT count(*) FROM citus_get_active_worker_nodes();") worker(s) actif(s), réplication des shards = $(psql_coordinator "SHOW citus.shard_replication_factor;")"
+  run_task citus-init "s#WORKER_COUNT#${workers}#" "initialisation de Citus"
 }
 
 run_migrations() {
-  local image="$1" phase=""
-  log "Migrations de schéma (alembic upgrade head)"
-  k delete pod db-migrate -n "$NAMESPACE" --ignore-not-found --wait=true >/dev/null
-  sed "s#BACKEND_IMAGE#${image}#" "$ROOT_DIR/k8s/tasks/db-migrate.yaml" | k apply -n "$NAMESPACE" -f - >/dev/null
-  for _ in $(seq 1 90); do
-    phase="$(k get pod db-migrate -n "$NAMESPACE" -o jsonpath='{.status.phase}')"
+  run_task db-migrate "s#BACKEND_IMAGE#$1#" "migrations de schéma (alembic upgrade head)"
+}
+
+run_task() {
+  local name="$1" substitution="$2" description="$3" phase=""
+  log "Tâche : $description"
+  k delete pod "$name" -n "$NAMESPACE" --ignore-not-found --wait=true >/dev/null
+  sed "$substitution" "$ROOT_DIR/k8s/tasks/$name.yaml" | k apply -n "$NAMESPACE" -f - >/dev/null
+  for _ in $(seq 1 150); do
+    phase="$(k get pod "$name" -n "$NAMESPACE" -o jsonpath='{.status.phase}')"
     [[ "$phase" == "Succeeded" || "$phase" == "Failed" ]] && break
     sleep 2
   done
-  k logs pod/db-migrate -n "$NAMESPACE" --tail=20 2>/dev/null | sed 's/^/    /' || true
-  [[ "$phase" == "Succeeded" ]] || fail "migration échouée ($phase) : déploiement annulé, l'ancienne version continue de tourner"
-  ok "migrations appliquées"
+  k logs "pod/$name" -n "$NAMESPACE" --tail=20 2>/dev/null | sed 's/^/    /' || true
+  [[ "$phase" == "Succeeded" ]] || fail "$description : échec ($phase), déploiement annulé, l'ancienne version continue de tourner"
+  ok "$description : terminé"
 }
