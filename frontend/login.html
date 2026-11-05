@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Connectez-vous à votre bibliothèque de photos.">
+    <title>Connexion · Photo Library</title>
+    <link rel="stylesheet" href="css/main.css">
+</head>
+<body>
+    <a class="skip-link" href="#contenu">Aller au contenu</a>
+    <header class="site-header">
+        <div class="container header-inner">
+            <a class="brand" href="index.html"><svg class="brand-logo" viewBox="0 0 32 32" aria-hidden="true" focusable="false"><rect x="2" y="6" width="22" height="20" rx="4" fill="#eb257b"/><rect x="8" y="2" width="22" height="20" rx="4" fill="#ffffff" stroke="#111827" stroke-width="2"/><circle cx="14.5" cy="9" r="2.5" fill="#eb257b"/><path d="M10 19l5-5 4 4 3-3 5 4" fill="none" stroke="#111827" stroke-width="2" stroke-linejoin="round"/></svg><span>Photo Library</span></a>
+            <nav class="site-nav" aria-label="Navigation principale">
+                <div class="nav-group" data-when="guest" hidden>
+                    <a class="nav-link" href="login.html" aria-current="page">Se connecter</a>
+                    <a class="button button-primary button-small" href="signup.html">Créer un compte</a>
+                </div>
+                <div class="nav-group" data-when="user" hidden>
+                    <a class="nav-link" href="library.html">Ma bibliothèque</a>
+                    <span class="nav-user">Connecté : <strong data-username></strong></span>
+                    <button type="button" class="button button-ghost button-small" data-action="logout">Se déconnecter</button>
+                </div>
+            </nav>
+        </div>
+    </header>
+
+    <main id="contenu" class="auth-page">
+        <section class="auth-card" aria-labelledby="login-title">
+            <h1 id="login-title">Connexion</h1>
+            <p class="auth-subtitle">Accédez à votre bibliothèque de photos.</p>
+            <div id="feedback" class="feedback" role="status" aria-live="polite" hidden></div>
+            <form id="login-form" class="form" novalidate>
+                <div class="field">
+                    <label for="login-username">Nom d'utilisateur</label>
+                    <input id="login-username" name="username" type="text" autocomplete="username" required>
+                </div>
+                <div class="field">
+                    <label for="login-password">Mot de passe</label>
+                    <input id="login-password" name="password" type="password" autocomplete="current-password" required>
+                </div>
+                <button type="submit" class="button button-primary button-block">Se connecter</button>
+            </form>
+            <p class="auth-switch">Pas encore de compte ? <a href="signup.html">Créer un compte</a></p>
+        </section>
+    </main>
+
+    <footer class="site-footer">
+        <div class="container footer-inner">
+            <span>Photo Library</span>
+            <span>Votre bibliothèque, plus légère.</span>
+        </div>
+    </footer>
+
+    <script src="js/api.js"></script>
+    <script src="js/session.js"></script>
+    <script src="js/forms.js"></script>
+    <script src="js/login.js"></script>
+</body>
+</html>
