@@ -15,6 +15,7 @@ app.add_middleware(
     allow_origins=["http://localhost:5500"],
     allow_methods=["GET", "POST"],
     allow_headers=["Content-Type"],
+    allow_credentials=True,
 )
 
 app.include_router(hello_world.router)

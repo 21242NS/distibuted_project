@@ -1,6 +1,5 @@
 const USERNAME_RULE = /^[a-zA-Z0-9_]{3,20}$/;
 const PASSWORD_RULE = /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d@$!%*#?&]{8,}$/;
-const SESSION_KEY = "photo-library-user";
 const SERVER_MESSAGES = {
     "Invalid username format": "Nom d'utilisateur invalide : 3 à 20 caractères (lettres, chiffres ou _).",
     "Invalid password format": "Mot de passe trop faible : au moins 8 caractères, dont une lettre et un chiffre.",
@@ -74,14 +73,7 @@ function validateSignup(username, password, confirm) {
     return null;
 }
 
-function renderSession() {
-    let user = null;
-    try {
-        user = sessionStorage.getItem(SESSION_KEY);
-    } catch {
-        user = null;
-    }
-
+function renderSession(user) {
     const loggedIn = Boolean(user);
     authSection.hidden = loggedIn;
     welcomeSection.hidden = !loggedIn;
@@ -89,14 +81,6 @@ function renderSession() {
     if (loggedIn) {
         document.getElementById("session-user").textContent = user;
         document.getElementById("welcome-user").textContent = user;
-    }
-}
-
-function saveSession(username) {
-    try {
-        sessionStorage.setItem(SESSION_KEY, username);
-    } catch {
-        return;
     }
 }
 
@@ -123,8 +107,7 @@ async function handleLogin(event) {
     }
 
     form.reset();
-    saveSession(username);
-    renderSession();
+    renderSession(data.username);
 }
 
 async function handleSignup(event) {
@@ -157,18 +140,15 @@ async function handleSignup(event) {
     showFeedback("Compte créé : vous pouvez maintenant vous connecter.", "success");
 }
 
-function clearSession() {
-    try {
-        sessionStorage.removeItem(SESSION_KEY);
-    } catch {
-        return;
-    }
+async function handleLogout() {
+    await callApi("logout", { method: "POST" });
+    selectTab("login");
+    renderSession(null);
 }
 
-function handleLogout() {
-    clearSession();
-    selectTab("login");
-    renderSession();
+async function loadCurrentUser() {
+    const { ok, data } = await callApi("me");
+    renderSession(ok ? data.username : null);
 }
 
 function handleTabKeys(event) {
@@ -186,4 +166,4 @@ panels.login.addEventListener("submit", handleLogin);
 panels.signup.addEventListener("submit", handleSignup);
 document.getElementById("logout").addEventListener("click", handleLogout);
 
-renderSession();
+loadCurrentUser();

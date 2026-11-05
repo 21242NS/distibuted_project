@@ -3,14 +3,16 @@ from concurrent.futures import ThreadPoolExecutor
 
 from argon2 import PasswordHasher
 from argon2.exceptions import InvalidHashError, VerificationError
-from fastapi import APIRouter, Depends, Response, status
+from fastapi import APIRouter, Cookie, Depends, Response, status
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.config import SESSION_COOKIE_NAME
 from app.database import get_db
 from app.models import User
+from app.sessions import close_session, open_session, require_user
 
 router = APIRouter(prefix="/api")
 password_hasher = PasswordHasher(time_cost=2, memory_cost=19456, parallelism=1)
@@ -76,4 +78,20 @@ def login(credentials: Credentials, response: Response, db: Session = Depends(ge
         response.status_code = status.HTTP_401_UNAUTHORIZED
         return {"error": "Invalid username or password"}
 
+    open_session(db, user, response)
     return {"message": "Login successful", "username": user.username}
+
+
+@router.post("/logout")
+def logout(
+    response: Response,
+    db: Session = Depends(get_db),
+    token: str | None = Cookie(default=None, alias=SESSION_COOKIE_NAME),
+):
+    close_session(db, token, response)
+    return {"message": "Logged out"}
+
+
+@router.get("/me")
+def me(user: User = Depends(require_user)):
+    return {"username": user.username}

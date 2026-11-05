@@ -3,7 +3,7 @@ const API_URL = window.location.port === "5500"
     : "/api/";
 
 async function callApi(path, { method = "GET", body } = {}) {
-    const options = { method, headers: { Accept: "application/json" } };
+    const options = { method, credentials: "include", headers: { Accept: "application/json" } };
     if (body !== undefined) {
         options.headers["Content-Type"] = "application/json";
         options.body = JSON.stringify(body);
