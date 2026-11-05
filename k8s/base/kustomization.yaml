@@ -4,6 +4,8 @@ resources:
   - backend/deployment.yaml
   - backend/service.yaml
   - backend/hpa.yaml
+  - backend/pdb.yaml
   - frontend/deployment.yaml
   - frontend/service.yaml
+  - frontend/pdb.yaml
   - ingress.yaml

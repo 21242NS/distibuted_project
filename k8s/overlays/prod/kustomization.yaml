@@ -20,6 +20,18 @@ patches:
       metadata:
         name: backend
   - patch: |-
+      $patch: delete
+      apiVersion: policy/v1
+      kind: PodDisruptionBudget
+      metadata:
+        name: backend
+  - patch: |-
+      $patch: delete
+      apiVersion: policy/v1
+      kind: PodDisruptionBudget
+      metadata:
+        name: frontend
+  - patch: |-
       - op: add
         path: /spec/replicas
         value: 3

@@ -17,12 +17,17 @@ spec:
       labels:
         app: frontend
     spec:
+      terminationGracePeriodSeconds: 45
       containers:
         - name: frontend
           image: photo-frontend:v1
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 80
+          lifecycle:
+            preStop:
+              exec:
+                command: ["sleep", "10"]
           readinessProbe:
             httpGet:
               path: /healthz
