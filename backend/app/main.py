@@ -1,7 +1,11 @@
 from fastapi import FastAPI
+
 from app.routers import hello_world
-from fastapi.middleware.cors import CORSMiddleware
 from app.routers import health
+from app.routers import login
+
+
+from fastapi.middleware.cors import CORSMiddleware
 from prometheus_fastapi_instrumentator import Instrumentator
 
 
@@ -14,5 +18,7 @@ app.add_middleware(
 
 app.include_router(hello_world.router)
 app.include_router(health.router)
+app.include_router(login.router)
+
 
 Instrumentator().instrument(app).expose(app)
