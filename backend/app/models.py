@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import BigInteger, DateTime, Integer, LargeBinary, String, Uuid
+from sqlalchemy import BigInteger, DateTime, Index, Integer, LargeBinary, String, UniqueConstraint, Uuid
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database import Base
@@ -10,15 +10,18 @@ from app.database import Base
 class User(Base):
 
     __tablename__ = "users"
+    __table_args__ = (UniqueConstraint("username", name="uq_users_username"),)
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=False)
-    email: Mapped[str] = mapped_column(String(255), unique=True)
-    name: Mapped[str] = mapped_column(String(100))
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    username: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    email: Mapped[str | None] = mapped_column(String(255), unique=True, nullable=True)
+    name: Mapped[str | None] = mapped_column(String(100), nullable=True)
     password_hash: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
 
 class Photo(Base):
     __tablename__ = "photos"
+    __table_args__ = (Index("ix_photos_user_sha256", "user_id", "sha256"),)
     user_id: Mapped[int] = mapped_column(Integer, primary_key=True)
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
     filename: Mapped[str] = mapped_column(String(255))
