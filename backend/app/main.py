@@ -1,6 +1,5 @@
 from fastapi import FastAPI
 
-from app.routers import hello_world
 from app.routers import health
 from app.routers import login
 
@@ -18,7 +17,6 @@ app.add_middleware(
     allow_credentials=True,
 )
 
-app.include_router(hello_world.router)
 app.include_router(health.router)
 app.include_router(login.router)
 

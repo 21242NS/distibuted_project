@@ -20,9 +20,9 @@ summary() {
 }
 trap summary EXIT
 
-log "Requêtes en continu sur $URL/ et $URL/api/ (Ctrl+C pour arrêter)"
+log "Requêtes en continu sur $URL/ et $URL/api/health (Ctrl+C pour arrêter)"
 while [[ "$DURATION" -eq 0 || $(( $(date +%s) - START )) -lt "$DURATION" ]]; do
-  for path in / /api/; do
+  for path in / /api/health; do
     code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 3 "$URL$path")" || code="000"
     TOTAL=$((TOTAL + 1))
     if [[ "$code" != "200" ]]; then

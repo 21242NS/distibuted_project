@@ -19,8 +19,9 @@ check() {
 }
 
 log "Smoke test sur $URL"
-check "/api/"          "Hello"
-check "/"              "Photo Library"
-check "/js/app.js"     "API_URL"
+check "/api/health"     "ok"
+check "/"               "Photo Library"
+check "/login.html"     "Connexion"
+check "/js/api.js"      "API_URL"
 rm -f /tmp/smoke-body
 ok "Smoke test réussi"
