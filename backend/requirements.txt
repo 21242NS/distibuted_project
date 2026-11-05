@@ -4,3 +4,5 @@ prometheus-fastapi-instrumentator
 sqlalchemy
 psycopg[binary]
 alembic
+re
+argon2-cffi
