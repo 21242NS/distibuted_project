@@ -39,5 +39,5 @@ spec:
               port: 8000
             initialDelaySeconds: 5
           resources:
-            requests: { cpu: 50m, memory: 64Mi }
-            limits:   { cpu: 250m, memory: 128Mi }
+            requests: { cpu: 50m, memory: 96Mi }
+            limits:   { cpu: 250m, memory: 256Mi }
