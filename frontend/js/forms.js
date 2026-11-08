@@ -47,3 +47,18 @@ function safeNextPage() {
     const next = new URLSearchParams(window.location.search).get("next");
     return Object.values(PAGES).includes(next) ? next : PAGES.library;
 }
+
+function bindPasswordToggles() {
+    for (const button of document.querySelectorAll("[data-toggle-password]")) {
+        const input = document.getElementById(button.dataset.togglePassword);
+        button.addEventListener("click", () => {
+            const reveal = input.type === "password";
+            input.type = reveal ? "text" : "password";
+            button.textContent = reveal ? "Masquer" : "Afficher";
+            button.setAttribute("aria-pressed", String(reveal));
+            input.focus();
+        });
+    }
+}
+
+bindPasswordToggles();

@@ -1,17 +1,6 @@
 const loginForm = document.getElementById("login-form");
 const loginFeedback = document.getElementById("feedback");
 
-function showSignupConfirmation() {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get("created") !== "1") return;
-    const username = params.get("username");
-    if (username) {
-        loginForm.username.value = username;
-        loginForm.password.focus();
-    }
-    showFeedback(loginFeedback, "Compte créé : vous pouvez maintenant vous connecter.", "success");
-}
-
 async function handleLogin(event) {
     event.preventDefault();
     const username = loginForm.username.value.trim();
@@ -40,7 +29,6 @@ async function initLoginPage() {
         window.location.replace(safeNextPage());
         return;
     }
-    showSignupConfirmation();
     loginForm.addEventListener("submit", handleLogin);
 }
 

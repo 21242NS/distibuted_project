@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Créez votre compte Photo Library.">
+    <meta name="description" content="Créez votre bibliothèque de photos.">
+    <meta name="theme-color" content="#17131d">
     <title>Créer un compte · Photo Library</title>
     <link rel="stylesheet" href="css/main.css">
 </head>
@@ -11,53 +12,71 @@
     <a class="skip-link" href="#contenu">Aller au contenu</a>
     <header class="site-header">
         <div class="container header-inner">
-            <a class="brand" href="index.html"><svg class="brand-logo" viewBox="0 0 32 32" aria-hidden="true" focusable="false"><rect x="2" y="6" width="22" height="20" rx="4" fill="#eb257b"/><rect x="8" y="2" width="22" height="20" rx="4" fill="#ffffff" stroke="#111827" stroke-width="2"/><circle cx="14.5" cy="9" r="2.5" fill="#eb257b"/><path d="M10 19l5-5 4 4 3-3 5 4" fill="none" stroke="#111827" stroke-width="2" stroke-linejoin="round"/></svg><span>Photo Library</span></a>
+            <a class="brand" href="index.html" aria-label="Photo Library, accueil"><svg class="brand-logo" viewBox="0 0 32 32" aria-hidden="true" focusable="false"><rect x="2" y="6" width="22" height="20" rx="4" fill="#eb257b"/><rect x="8" y="2" width="22" height="20" rx="4" fill="#ffffff" stroke="#17131d" stroke-width="2"/><circle cx="14.5" cy="9" r="2.5" fill="#eb257b"/><path d="M10 19l5-5 4 4 3-3 5 4" fill="none" stroke="#17131d" stroke-width="2" stroke-linejoin="round"/></svg><span>Photo Library</span></a>
             <nav class="site-nav" aria-label="Navigation principale">
                 <div class="nav-group" data-when="guest" hidden>
                     <a class="nav-link" href="login.html">Se connecter</a>
-                    <a class="button button-primary button-small" href="signup.html" aria-current="page">Créer un compte</a>
+                    <a class="button button-primary button-small" href="signup.html">Créer un compte</a>
                 </div>
                 <div class="nav-group" data-when="user" hidden>
                     <a class="nav-link" href="library.html">Ma bibliothèque</a>
-                    <span class="nav-user">Connecté : <strong data-username></strong></span>
-                    <button type="button" class="button button-ghost button-small" data-action="logout">Se déconnecter</button>
+                    <span class="nav-user"><span class="avatar" data-initial aria-hidden="true"></span><span data-username></span></span>
+                    <button type="button" class="button button-light button-small" data-action="logout">Se déconnecter</button>
                 </div>
             </nav>
         </div>
     </header>
 
-    <main id="contenu" class="auth-page">
-        <section class="auth-card" aria-labelledby="signup-title">
-            <h1 id="signup-title">Créer un compte</h1>
-            <p class="auth-subtitle">Quelques secondes suffisent.</p>
-            <div id="feedback" class="feedback" role="status" aria-live="polite" hidden></div>
-            <form id="signup-form" class="form" novalidate>
-                <div class="field">
-                    <label for="signup-username">Nom d'utilisateur</label>
-                    <input id="signup-username" name="username" type="text" autocomplete="username" required aria-describedby="signup-username-hint">
-                    <p id="signup-username-hint" class="hint">3 à 20 caractères : lettres, chiffres ou _</p>
+    <main id="contenu" class="auth-layout">
+        <aside class="auth-aside" aria-hidden="true">
+            <div>
+                <h2>Votre bibliothèque, sans les doublons.</h2>
+                <p>Créez votre compte et importez vos premières photos dans la foulée : vous êtes connecté automatiquement.</p>
+            </div>
+            <div class="mosaic" aria-hidden="true">
+                    <div class="mosaic-tile is-tall" style="--c1:#fbcfe8;--c2:#eb257b"></div>
+                    <div class="mosaic-tile" style="--c1:#bfdbfe;--c2:#1d4ed8"></div>
+                    <div class="mosaic-tile is-wide" style="--c1:#fde68a;--c2:#f59e0b"></div>
+                    <div class="mosaic-tile" style="--c1:#bbf7d0;--c2:#16a34a"></div>
+                    <div class="mosaic-tile is-duplicate" style="--c1:#bfdbfe;--c2:#1d4ed8"><span class="mosaic-badge">doublon</span></div>
+                    <div class="mosaic-tile" style="--c1:#ddd6fe;--c2:#7c3aed"></div>
+                    <div class="mosaic-tile is-wide" style="--c1:#fecaca;--c2:#dc2626"></div>
+                    <div class="mosaic-tile" style="--c1:#a5f3fc;--c2:#0891b2"></div>
+                    <div class="mosaic-tile" style="--c1:#fbcfe8;--c2:#9d1b8f"></div>
                 </div>
-                <div class="field">
-                    <label for="signup-password">Mot de passe</label>
-                    <input id="signup-password" name="password" type="password" autocomplete="new-password" required aria-describedby="signup-password-hint">
-                    <p id="signup-password-hint" class="hint">Au moins 8 caractères, dont une lettre et un chiffre</p>
-                </div>
-                <div class="field">
-                    <label for="signup-confirm">Confirmer le mot de passe</label>
-                    <input id="signup-confirm" name="confirm" type="password" autocomplete="new-password" required>
-                </div>
-                <button type="submit" class="button button-primary button-block">Créer mon compte</button>
-            </form>
-            <p class="auth-switch">Déjà un compte ? <a href="login.html">Se connecter</a></p>
-        </section>
-    </main>
-
-    <footer class="site-footer">
-        <div class="container footer-inner">
-            <span>Photo Library</span>
-            <span>Votre bibliothèque, plus légère.</span>
+        </aside>
+        <div class="auth-main">
+            <section class="auth-card" aria-labelledby="signup-title">
+                <h1 id="signup-title">Créer un compte</h1>
+                <p class="auth-subtitle">Quelques secondes suffisent.</p>
+                <div id="feedback" class="feedback" role="status" aria-live="polite" hidden></div>
+                <form id="signup-form" class="form" novalidate>
+                    <div class="field">
+                        <label for="signup-username">Nom d'utilisateur</label>
+                        <input id="signup-username" name="username" type="text" autocomplete="username" autocapitalize="none" spellcheck="false" required aria-describedby="signup-username-hint">
+                        <p id="signup-username-hint" class="hint">3 à 20 caractères : lettres, chiffres ou _</p>
+                    </div>
+                    <div class="field">
+                        <label for="signup-password">Mot de passe</label>
+                        <div class="input-wrap">
+                            <input id="signup-password" name="password" type="password" autocomplete="new-password" required aria-describedby="signup-password-hint">
+                            <button type="button" class="toggle-password" data-toggle-password="signup-password" aria-pressed="false">Afficher</button>
+                        </div>
+                        <p id="signup-password-hint" class="hint">Au moins 8 caractères, dont une lettre et un chiffre</p>
+                    </div>
+                    <div class="field">
+                        <label for="signup-confirm">Confirmer le mot de passe</label>
+                        <div class="input-wrap">
+                            <input id="signup-confirm" name="confirm" type="password" autocomplete="new-password" required>
+                            <button type="button" class="toggle-password" data-toggle-password="signup-confirm" aria-pressed="false">Afficher</button>
+                        </div>
+                    </div>
+                    <button type="submit" class="button button-primary button-large button-block">Créer mon compte</button>
+                </form>
+                <p class="auth-switch">Déjà un compte ? <a href="login.html">Se connecter</a></p>
+            </section>
         </div>
-    </footer>
+    </main>
 
     <script src="js/api.js"></script>
     <script src="js/session.js"></script>

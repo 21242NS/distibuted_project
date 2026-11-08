@@ -29,13 +29,12 @@ async function handleSignup(event) {
         showFeedback(signupFeedback, errorMessage(data, "L'inscription a échoué. Réessayez."), "error");
         return;
     }
-    const params = new URLSearchParams({ created: "1", username });
-    window.location.assign(`${PAGES.login}?${params}`);
+    window.location.assign(safeNextPage());
 }
 
 async function initSignupPage() {
     if (await initSession()) {
-        window.location.replace(PAGES.library);
+        window.location.replace(safeNextPage());
         return;
     }
     signupForm.addEventListener("submit", handleSignup);

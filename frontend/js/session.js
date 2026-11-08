@@ -18,6 +18,9 @@ function renderHeader(username) {
     for (const element of document.querySelectorAll("[data-username]")) {
         element.textContent = username || "";
     }
+    for (const element of document.querySelectorAll("[data-initial]")) {
+        element.textContent = username ? username.charAt(0) : "";
+    }
 }
 
 async function logout() {

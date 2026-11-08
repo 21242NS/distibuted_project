@@ -1,23 +1,29 @@
+const ACCEPTED_TYPES = ["image/jpeg", "image/png", "image/gif", "image/webp"];
+
 const UPLOAD_ERRORS = {
     400: "fichier vide",
     401: "session expirée",
-    413: "fichier trop lourd (10 Mo maximum)",
-    415: "format non accepté (JPEG, PNG, GIF ou WebP)",
+    413: "trop lourd (10 Mo maximum)",
+    415: "format non accepté",
 };
 
 const elements = {
-    feedback: document.getElementById("feedback"),
+    libraryBar: document.getElementById("library-bar"),
+    toolbar: document.getElementById("library-toolbar"),
+    selectionToolbar: document.getElementById("selection-toolbar"),
     fileInput: document.getElementById("file-input"),
     importButton: document.getElementById("import-button"),
+    importLabel: document.querySelector("#import-button span"),
     statPhotos: document.getElementById("stat-photos"),
     statDuplicates: document.getElementById("stat-duplicates"),
+    chipDuplicates: document.getElementById("chip-duplicates"),
     statSpace: document.getElementById("stat-space"),
     banner: document.getElementById("duplicate-banner"),
     bannerText: document.getElementById("duplicate-text"),
     cleanButton: document.getElementById("clean-button"),
     emptyState: document.getElementById("empty-state"),
     grid: document.getElementById("photo-grid"),
-    selectionBar: document.getElementById("selection-bar"),
+    dropOverlay: document.getElementById("drop-overlay"),
     selectionCount: document.getElementById("selection-count"),
     selectAllButton: document.getElementById("select-all-button"),
     cancelSelectionButton: document.getElementById("cancel-selection-button"),
@@ -39,7 +45,12 @@ const state = {
     extraCopies: [],
     selected: new Set(),
     viewerIndex: -1,
+    uploading: false,
 };
+
+function plural(count, singular, pluralForm = `${singular}s`) {
+    return `${count} ${count > 1 ? pluralForm : singular}`;
+}
 
 function formatBytes(bytes) {
     if (bytes < 1024) {
@@ -98,6 +109,7 @@ function buildCard(photo) {
     image.src = contentUrl(photo);
     image.alt = "";
     image.loading = "lazy";
+    image.decoding = "async";
     frame.append(image);
     if (isDuplicate) {
         const badge = document.createElement("span");
@@ -136,9 +148,12 @@ function syncCards() {
 
 function renderSelection() {
     const count = state.selected.size;
-    elements.selectionBar.hidden = count === 0;
-    elements.grid.classList.toggle("selecting", count > 0);
-    elements.selectionCount.textContent = `${count} photo(s) sélectionnée(s)`;
+    const selecting = count > 0;
+    elements.toolbar.hidden = selecting;
+    elements.selectionToolbar.hidden = !selecting;
+    elements.libraryBar.classList.toggle("is-selecting", selecting);
+    elements.grid.classList.toggle("selecting", selecting);
+    elements.selectionCount.textContent = plural(count, "photo sélectionnée", "photos sélectionnées");
     elements.selectAllButton.hidden = count === state.photos.length;
 }
 
@@ -151,14 +166,18 @@ function render(photos, report) {
 
     elements.statPhotos.textContent = String(photos.length);
     elements.statDuplicates.textContent = String(report.duplicate_count);
+    document.getElementById("label-photos").textContent = photos.length > 1 ? "photos" : "photo";
+    document.getElementById("label-duplicates").textContent = report.duplicate_count > 1 ? "doublons" : "doublon";
     elements.statSpace.textContent = formatBytes(report.recoverable_bytes);
+    elements.chipDuplicates.classList.toggle("chip-alert", report.duplicate_count > 0);
 
     elements.banner.hidden = report.duplicate_count === 0;
     elements.bannerText.textContent =
-        `${report.duplicate_count} doublon(s) trouvé(s) : ${formatBytes(report.recoverable_bytes)} à récupérer. ` +
-        "La copie la plus ancienne de chaque photo est conservée.";
+        `${plural(report.duplicate_count, "doublon trouvé", "doublons trouvés")} : ` +
+        `${formatBytes(report.recoverable_bytes)} à récupérer. L'original de chaque photo est conservé.`;
 
     elements.emptyState.hidden = photos.length > 0;
+    elements.grid.hidden = photos.length === 0;
     renderGrid();
 }
 
@@ -169,7 +188,7 @@ async function refresh() {
         return;
     }
     if (!list.ok || !duplicates.ok) {
-        showFeedback(elements.feedback, "Impossible de charger vos photos. Réessayez dans un instant.", "error");
+        toast("Impossible de charger vos photos. Réessayez dans un instant.", "error");
         return;
     }
     render(list.data.photos, duplicates.data);
@@ -205,42 +224,70 @@ async function deletePhotos(ids) {
 
 async function deleteSelection() {
     const ids = [...state.selected];
-    if (ids.length === 0 || !window.confirm(`Supprimer définitivement ${ids.length} photo(s) ?`)) {
+    if (ids.length === 0) {
+        return;
+    }
+    const confirmed = await confirmDialog({
+        title: `Supprimer ${plural(ids.length, "photo")} ?`,
+        message: "Les photos sélectionnées seront définitivement supprimées de votre bibliothèque.",
+        confirmLabel: "Supprimer",
+        danger: true,
+    });
+    if (!confirmed) {
         return;
     }
     elements.deleteSelectionButton.disabled = true;
     const removed = await deletePhotos(ids);
     elements.deleteSelectionButton.disabled = false;
     state.selected.clear();
-    const kind = removed === ids.length ? "success" : "error";
-    showFeedback(elements.feedback, `${removed} photo(s) supprimée(s) sur ${ids.length}.`, kind);
+    if (removed === ids.length) {
+        toast(`${plural(removed, "photo supprimée", "photos supprimées")}.`, "success");
+    } else {
+        toast(`${removed} sur ${ids.length} supprimées : réessayez pour les autres.`, "error");
+    }
     await refresh();
 }
 
 async function removeDuplicates() {
     const ids = [...state.extraCopies];
-    if (ids.length === 0 || !window.confirm(`Supprimer ${ids.length} doublon(s) ? Les originaux sont conservés.`)) {
+    if (ids.length === 0) {
+        return;
+    }
+    const confirmed = await confirmDialog({
+        title: `Supprimer ${plural(ids.length, "doublon")} ?`,
+        message: "Seules les copies sont supprimées : la photo la plus ancienne de chaque groupe est conservée.",
+        confirmLabel: "Supprimer les doublons",
+        danger: true,
+    });
+    if (!confirmed) {
         return;
     }
     elements.cleanButton.disabled = true;
     const removed = await deletePhotos(ids);
     elements.cleanButton.disabled = false;
-    showFeedback(elements.feedback, `${removed} doublon(s) supprimé(s).`, "success");
+    toast(`${plural(removed, "doublon supprimé", "doublons supprimés")}.`, "success");
     await refresh();
 }
 
+function setUploading(uploading, label = "Importer des photos") {
+    state.uploading = uploading;
+    elements.importButton.disabled = uploading;
+    elements.importLabel.textContent = label;
+}
+
 async function uploadFiles(files) {
-    if (files.length === 0) {
+    if (files.length === 0 || state.uploading) {
         return;
     }
-    clearFeedback(elements.feedback);
-    elements.importButton.disabled = true;
+    const images = files.filter((file) => ACCEPTED_TYPES.includes(file.type));
+    const failures = files
+        .filter((file) => !ACCEPTED_TYPES.includes(file.type))
+        .map((file) => `${file.name} (${UPLOAD_ERRORS[415]})`);
 
     let imported = 0;
     let duplicates = 0;
-    const failures = [];
-    for (const [index, file] of files.entries()) {
-        elements.importButton.textContent = `Import ${index + 1}/${files.length}…`;
+    for (const [index, file] of images.entries()) {
+        setUploading(true, `Import ${index + 1}/${images.length}…`);
         const form = new FormData();
         form.append("file", file);
         const { ok, status, data } = await callApi("photos", { method: "POST", body: form });
@@ -248,24 +295,58 @@ async function uploadFiles(files) {
             imported += 1;
             duplicates += data.duplicate ? 1 : 0;
         } else {
-            failures.push(`${file.name} : ${UPLOAD_ERRORS[status] || "erreur du serveur"}`);
+            failures.push(`${file.name} (${UPLOAD_ERRORS[status] || "erreur du serveur"})`);
         }
     }
-
-    elements.importButton.textContent = "Importer des photos";
-    elements.importButton.disabled = false;
+    setUploading(false);
     elements.fileInput.value = "";
 
-    const parts = [`${imported} photo(s) importée(s)`];
-    if (duplicates > 0) {
-        parts.push(`dont ${duplicates} doublon(s)`);
+    if (imported > 0) {
+        const suffix = duplicates > 0 ? `, dont ${plural(duplicates, "doublon")}` : "";
+        toast(`${plural(imported, "photo importée", "photos importées")}${suffix}.`, "success");
     }
-    let message = parts.join(", ") + ".";
     if (failures.length > 0) {
-        message += ` Refusé : ${failures.join(" ; ")}.`;
+        toast(`Refusé : ${failures.join(", ")}.`, "error");
     }
-    showFeedback(elements.feedback, message, failures.length > 0 ? "error" : "success");
     await refresh();
+}
+
+function bindDragAndDrop() {
+    let depth = 0;
+    const hasFiles = (event) => [...(event.dataTransfer?.types || [])].includes("Files");
+
+    window.addEventListener("dragenter", (event) => {
+        if (!hasFiles(event)) {
+            return;
+        }
+        event.preventDefault();
+        depth += 1;
+        elements.dropOverlay.hidden = false;
+    });
+    window.addEventListener("dragover", (event) => {
+        if (hasFiles(event)) {
+            event.preventDefault();
+            event.dataTransfer.dropEffect = "copy";
+        }
+    });
+    window.addEventListener("dragleave", (event) => {
+        if (!hasFiles(event)) {
+            return;
+        }
+        depth = Math.max(0, depth - 1);
+        if (depth === 0) {
+            elements.dropOverlay.hidden = true;
+        }
+    });
+    window.addEventListener("drop", (event) => {
+        if (!hasFiles(event)) {
+            return;
+        }
+        event.preventDefault();
+        depth = 0;
+        elements.dropOverlay.hidden = true;
+        uploadFiles([...event.dataTransfer.files]);
+    });
 }
 
 function showInViewer(index) {
@@ -317,7 +398,7 @@ function openPhotoFromHash() {
     const wanted = photoIdFromHash();
     if (wanted && !openViewer(wanted)) {
         history.replaceState(null, "", window.location.pathname);
-        showFeedback(elements.feedback, "Cette photo n'existe pas ou a été supprimée.", "error");
+        toast("Cette photo n'existe pas ou a été supprimée.", "error");
     }
 }
 
@@ -336,6 +417,21 @@ function bindViewer() {
             stepViewer(-1);
         } else if (event.key === "ArrowRight") {
             stepViewer(1);
+        }
+    });
+
+    let touchStartX = null;
+    elements.viewerImage.addEventListener("touchstart", (event) => {
+        touchStartX = event.touches[0].clientX;
+    }, { passive: true });
+    elements.viewerImage.addEventListener("touchend", (event) => {
+        if (touchStartX === null) {
+            return;
+        }
+        const distance = event.changedTouches[0].clientX - touchStartX;
+        touchStartX = null;
+        if (Math.abs(distance) > 50) {
+            stepViewer(distance < 0 ? 1 : -1);
         }
     });
 }
@@ -360,11 +456,13 @@ async function initLibraryPage() {
     elements.cancelSelectionButton.addEventListener("click", clearSelection);
     elements.deleteSelectionButton.addEventListener("click", deleteSelection);
     document.addEventListener("keydown", (event) => {
-        if (event.key === "Escape" && state.selected.size > 0 && !elements.viewer.open) {
+        const modalOpen = document.querySelector("dialog[open]");
+        if (event.key === "Escape" && state.selected.size > 0 && !modalOpen) {
             clearSelection();
         }
     });
     bindViewer();
+    bindDragAndDrop();
 
     await refresh();
     document.getElementById("contenu").hidden = false;
