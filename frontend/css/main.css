@@ -566,15 +566,109 @@ a:focus-visible {
     margin: 0 auto 1.25rem;
 }
 
-.badge-soon {
-    display: inline-block;
-    margin-left: 0.4rem;
-    padding: 0.05rem 0.45rem;
+.duplicate-banner {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem 1rem;
+    margin-bottom: 1.5rem;
+    padding: 1rem 1.25rem;
+    border-radius: var(--radius);
+    background: var(--primary-soft);
+}
+
+.duplicate-banner p {
+    margin: 0;
+}
+
+.photo-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 1rem;
+    margin: 0 0 3rem;
+    padding: 0;
+    list-style: none;
+}
+
+.photo-card {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--surface);
+}
+
+.photo-card.is-duplicate {
+    border-color: var(--primary);
+}
+
+.photo-frame {
+    position: relative;
+    aspect-ratio: 1;
+    background: var(--tint-soft);
+}
+
+.photo-frame img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.photo-badge {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    padding: 0.1rem 0.5rem;
     border-radius: 6px;
-    background: var(--tint);
-    color: var(--muted);
+    background: var(--text);
+    color: #ffffff;
     font-size: 0.75rem;
     font-weight: 700;
+}
+
+.photo-info {
+    padding: 0.7rem 0.8rem 0.3rem;
+    min-width: 0;
+}
+
+.photo-name {
+    margin: 0;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.photo-meta {
+    margin: 0;
+    font-size: 0.85rem;
+    color: var(--muted);
+}
+
+.photo-delete {
+    margin: 0.4rem 0.8rem 0.8rem;
+    align-self: flex-start;
+    padding: 0.3rem 0.7rem;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--surface);
+    color: var(--error);
+    font: inherit;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.photo-delete:hover {
+    border-color: var(--error);
+}
+
+.photo-delete:focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
 }
 
 @media (max-width: 860px) {
@@ -602,6 +696,10 @@ a:focus-visible {
 
     .stats {
         grid-template-columns: 1fr;
+    }
+
+    .photo-grid {
+        grid-template-columns: repeat(2, 1fr);
     }
 
     .auth-card {

@@ -4,7 +4,9 @@ const API_URL = window.location.port === "5500"
 
 async function callApi(path, { method = "GET", body } = {}) {
     const options = { method, credentials: "include", headers: { Accept: "application/json" } };
-    if (body !== undefined) {
+    if (body instanceof FormData) {
+        options.body = body;
+    } else if (body !== undefined) {
         options.headers["Content-Type"] = "application/json";
         options.body = JSON.stringify(body);
     }
