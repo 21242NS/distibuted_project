@@ -54,9 +54,34 @@
                 <p>Importez vos premières photos : les doublons seront repérés automatiquement.</p>
                 <button type="button" class="button button-primary" data-action="import">Importer des photos</button>
             </section>
+            <div class="selection-bar" id="selection-bar" hidden>
+                <span id="selection-count" aria-live="polite"></span>
+                <div class="selection-actions">
+                    <button type="button" class="button button-ghost button-small" id="select-all-button">Tout sélectionner</button>
+                    <button type="button" class="button button-ghost button-small" id="cancel-selection-button">Annuler</button>
+                    <button type="button" class="button button-danger button-small" id="delete-selection-button">Supprimer</button>
+                </div>
+            </div>
             <ul class="photo-grid" id="photo-grid" aria-label="Vos photos"></ul>
         </div>
     </main>
+
+    <dialog class="viewer" id="viewer" aria-labelledby="viewer-name">
+        <div class="viewer-top">
+            <div class="viewer-title">
+                <h2 id="viewer-name"></h2>
+                <p id="viewer-meta"></p>
+            </div>
+            <button type="button" class="viewer-close" id="viewer-close" aria-label="Fermer">&times;</button>
+        </div>
+        <div class="viewer-stage">
+            <button type="button" class="viewer-nav" id="viewer-prev" aria-label="Photo précédente">&#8249;</button>
+            <img id="viewer-image" alt="">
+            <button type="button" class="viewer-nav" id="viewer-next" aria-label="Photo suivante">&#8250;</button>
+        </div>
+        <p class="viewer-duplicate" id="viewer-duplicate" hidden>Doublon : une copie plus ancienne de cette photo existe déjà dans votre bibliothèque.</p>
+        <p class="viewer-position" id="viewer-position"></p>
+    </dialog>
 
     <footer class="site-footer">
         <div class="container footer-inner">

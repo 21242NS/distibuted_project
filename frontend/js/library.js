@@ -17,9 +17,29 @@ const elements = {
     cleanButton: document.getElementById("clean-button"),
     emptyState: document.getElementById("empty-state"),
     grid: document.getElementById("photo-grid"),
+    selectionBar: document.getElementById("selection-bar"),
+    selectionCount: document.getElementById("selection-count"),
+    selectAllButton: document.getElementById("select-all-button"),
+    cancelSelectionButton: document.getElementById("cancel-selection-button"),
+    deleteSelectionButton: document.getElementById("delete-selection-button"),
+    viewer: document.getElementById("viewer"),
+    viewerName: document.getElementById("viewer-name"),
+    viewerMeta: document.getElementById("viewer-meta"),
+    viewerImage: document.getElementById("viewer-image"),
+    viewerDuplicate: document.getElementById("viewer-duplicate"),
+    viewerPosition: document.getElementById("viewer-position"),
+    viewerPrev: document.getElementById("viewer-prev"),
+    viewerNext: document.getElementById("viewer-next"),
+    viewerClose: document.getElementById("viewer-close"),
 };
 
-let extraCopies = [];
+const state = {
+    photos: [],
+    duplicateIds: new Set(),
+    extraCopies: [],
+    selected: new Set(),
+    viewerIndex: -1,
+};
 
 function formatBytes(bytes) {
     if (bytes < 1024) {
@@ -31,8 +51,17 @@ function formatBytes(bytes) {
     return `${(bytes / (1024 * 1024)).toFixed(1).replace(".", ",")} Mo`;
 }
 
-function formatDate(value) {
-    return new Date(value).toLocaleDateString("fr-BE", { day: "numeric", month: "short", year: "numeric" });
+function formatDate(value, withTime = false) {
+    const options = { day: "numeric", month: "short", year: "numeric" };
+    if (withTime) {
+        options.hour = "2-digit";
+        options.minute = "2-digit";
+    }
+    return new Date(value).toLocaleString("fr-BE", options);
+}
+
+function contentUrl(photo) {
+    return `${API_URL}photos/${photo.id}/content`;
 }
 
 function goToLogin() {
@@ -40,15 +69,34 @@ function goToLogin() {
     window.location.replace(`${PAGES.login}?${params}`);
 }
 
-function buildCard(photo, isDuplicate) {
+function buildCard(photo) {
+    const isDuplicate = state.duplicateIds.has(photo.id);
+    const isSelected = state.selected.has(photo.id);
+
     const card = document.createElement("li");
-    card.className = isDuplicate ? "photo-card is-duplicate" : "photo-card";
+    card.className = "photo-card";
+    card.dataset.id = photo.id;
+    card.classList.toggle("is-duplicate", isDuplicate);
+    card.classList.toggle("is-selected", isSelected);
+
+    const open = document.createElement("button");
+    open.type = "button";
+    open.className = "photo-open";
+    open.setAttribute("aria-label", `Voir ${photo.filename}`);
+    open.title = `${photo.filename} · ${formatBytes(photo.size)} · ${formatDate(photo.created_at)}`;
+    open.addEventListener("click", () => {
+        if (state.selected.size > 0) {
+            toggleSelection(photo.id);
+        } else {
+            openViewer(photo.id);
+        }
+    });
 
     const frame = document.createElement("div");
     frame.className = "photo-frame";
     const image = document.createElement("img");
-    image.src = `${API_URL}photos/${photo.id}/content`;
-    image.alt = photo.filename;
+    image.src = contentUrl(photo);
+    image.alt = "";
     image.loading = "lazy";
     frame.append(image);
     if (isDuplicate) {
@@ -57,32 +105,49 @@ function buildCard(photo, isDuplicate) {
         badge.textContent = "Doublon";
         frame.append(badge);
     }
+    open.append(frame);
 
-    const info = document.createElement("div");
-    info.className = "photo-info";
-    const name = document.createElement("p");
-    name.className = "photo-name";
-    name.textContent = photo.filename;
-    name.title = photo.filename;
-    const meta = document.createElement("p");
-    meta.className = "photo-meta";
-    meta.textContent = `${formatBytes(photo.size)} · ${formatDate(photo.created_at)}`;
-    info.append(name, meta);
+    const check = document.createElement("label");
+    check.className = "photo-check";
+    const box = document.createElement("input");
+    box.type = "checkbox";
+    box.checked = isSelected;
+    box.setAttribute("aria-label", `Sélectionner ${photo.filename}`);
+    box.addEventListener("change", () => toggleSelection(photo.id));
+    check.append(box);
 
-    const remove = document.createElement("button");
-    remove.type = "button";
-    remove.className = "photo-delete";
-    remove.textContent = "Supprimer";
-    remove.setAttribute("aria-label", `Supprimer ${photo.filename}`);
-    remove.addEventListener("click", () => deletePhoto(photo));
-
-    card.append(frame, info, remove);
+    card.append(open, check);
     return card;
 }
 
+function renderGrid() {
+    elements.grid.replaceChildren(...state.photos.map(buildCard));
+    renderSelection();
+}
+
+function syncCards() {
+    for (const card of elements.grid.children) {
+        const selected = state.selected.has(card.dataset.id);
+        card.classList.toggle("is-selected", selected);
+        card.querySelector(".photo-check input").checked = selected;
+    }
+    renderSelection();
+}
+
+function renderSelection() {
+    const count = state.selected.size;
+    elements.selectionBar.hidden = count === 0;
+    elements.grid.classList.toggle("selecting", count > 0);
+    elements.selectionCount.textContent = `${count} photo(s) sélectionnée(s)`;
+    elements.selectAllButton.hidden = count === state.photos.length;
+}
+
 function render(photos, report) {
-    extraCopies = report.groups.flatMap((group) => group.photos.slice(1).map((photo) => photo.id));
-    const duplicateIds = new Set(extraCopies);
+    state.photos = photos;
+    state.extraCopies = report.groups.flatMap((group) => group.photos.slice(1).map((photo) => photo.id));
+    state.duplicateIds = new Set(state.extraCopies);
+    const existing = new Set(photos.map((photo) => photo.id));
+    state.selected = new Set([...state.selected].filter((id) => existing.has(id)));
 
     elements.statPhotos.textContent = String(photos.length);
     elements.statDuplicates.textContent = String(report.duplicate_count);
@@ -94,7 +159,7 @@ function render(photos, report) {
         "La copie la plus ancienne de chaque photo est conservée.";
 
     elements.emptyState.hidden = photos.length > 0;
-    elements.grid.replaceChildren(...photos.map((photo) => buildCard(photo, duplicateIds.has(photo.id))));
+    renderGrid();
 }
 
 async function refresh() {
@@ -108,6 +173,60 @@ async function refresh() {
         return;
     }
     render(list.data.photos, duplicates.data);
+}
+
+function toggleSelection(id) {
+    if (state.selected.has(id)) {
+        state.selected.delete(id);
+    } else {
+        state.selected.add(id);
+    }
+    syncCards();
+}
+
+function selectAll() {
+    state.selected = new Set(state.photos.map((photo) => photo.id));
+    syncCards();
+}
+
+function clearSelection() {
+    state.selected.clear();
+    syncCards();
+}
+
+async function deletePhotos(ids) {
+    let removed = 0;
+    for (const id of ids) {
+        const { ok, status } = await callApi(`photos/${id}`, { method: "DELETE" });
+        removed += ok || status === 404 ? 1 : 0;
+    }
+    return removed;
+}
+
+async function deleteSelection() {
+    const ids = [...state.selected];
+    if (ids.length === 0 || !window.confirm(`Supprimer définitivement ${ids.length} photo(s) ?`)) {
+        return;
+    }
+    elements.deleteSelectionButton.disabled = true;
+    const removed = await deletePhotos(ids);
+    elements.deleteSelectionButton.disabled = false;
+    state.selected.clear();
+    const kind = removed === ids.length ? "success" : "error";
+    showFeedback(elements.feedback, `${removed} photo(s) supprimée(s) sur ${ids.length}.`, kind);
+    await refresh();
+}
+
+async function removeDuplicates() {
+    const ids = [...state.extraCopies];
+    if (ids.length === 0 || !window.confirm(`Supprimer ${ids.length} doublon(s) ? Les originaux sont conservés.`)) {
+        return;
+    }
+    elements.cleanButton.disabled = true;
+    const removed = await deletePhotos(ids);
+    elements.cleanButton.disabled = false;
+    showFeedback(elements.feedback, `${removed} doublon(s) supprimé(s).`, "success");
+    await refresh();
 }
 
 async function uploadFiles(files) {
@@ -149,33 +268,76 @@ async function uploadFiles(files) {
     await refresh();
 }
 
-async function deletePhoto(photo) {
-    if (!window.confirm(`Supprimer « ${photo.filename} » ?`)) {
-        return;
-    }
-    const { ok, status } = await callApi(`photos/${photo.id}`, { method: "DELETE" });
-    if (ok || status === 404) {
-        showFeedback(elements.feedback, `« ${photo.filename} » a été supprimée.`, "success");
-    } else {
-        showFeedback(elements.feedback, "La suppression a échoué.", "error");
-    }
-    await refresh();
+function showInViewer(index) {
+    const photo = state.photos[index];
+    state.viewerIndex = index;
+    elements.viewerImage.src = contentUrl(photo);
+    elements.viewerImage.alt = photo.filename;
+    elements.viewerName.textContent = photo.filename;
+    elements.viewerMeta.textContent =
+        `${formatBytes(photo.size)} · ${photo.content_type} · importée le ${formatDate(photo.created_at, true)}`;
+    elements.viewerDuplicate.hidden = !state.duplicateIds.has(photo.id);
+    elements.viewerPosition.textContent = `${index + 1} / ${state.photos.length}`;
+    elements.viewerPrev.disabled = index === 0;
+    elements.viewerNext.disabled = index === state.photos.length - 1;
+    history.replaceState(null, "", `#photo=${photo.id}`);
 }
 
-async function removeDuplicates() {
-    const ids = [...extraCopies];
-    if (ids.length === 0 || !window.confirm(`Supprimer ${ids.length} doublon(s) ? Les originaux sont conservés.`)) {
-        return;
+function openViewer(id) {
+    const index = state.photos.findIndex((photo) => photo.id === id);
+    if (index === -1) {
+        return false;
     }
-    elements.cleanButton.disabled = true;
-    let removed = 0;
-    for (const id of ids) {
-        const { ok } = await callApi(`photos/${id}`, { method: "DELETE" });
-        removed += ok ? 1 : 0;
+    showInViewer(index);
+    if (!elements.viewer.open) {
+        elements.viewer.showModal();
     }
-    elements.cleanButton.disabled = false;
-    showFeedback(elements.feedback, `${removed} doublon(s) supprimé(s).`, "success");
-    await refresh();
+    return true;
+}
+
+function stepViewer(offset) {
+    const next = state.viewerIndex + offset;
+    if (next >= 0 && next < state.photos.length) {
+        showInViewer(next);
+    }
+}
+
+function onViewerClosed() {
+    state.viewerIndex = -1;
+    elements.viewerImage.removeAttribute("src");
+    history.replaceState(null, "", window.location.pathname + window.location.search);
+}
+
+function photoIdFromHash() {
+    const match = window.location.hash.match(/^#photo=([0-9a-f-]{36})$/i);
+    return match ? match[1] : null;
+}
+
+function openPhotoFromHash() {
+    const wanted = photoIdFromHash();
+    if (wanted && !openViewer(wanted)) {
+        history.replaceState(null, "", window.location.pathname);
+        showFeedback(elements.feedback, "Cette photo n'existe pas ou a été supprimée.", "error");
+    }
+}
+
+function bindViewer() {
+    elements.viewerClose.addEventListener("click", () => elements.viewer.close());
+    elements.viewerPrev.addEventListener("click", () => stepViewer(-1));
+    elements.viewerNext.addEventListener("click", () => stepViewer(1));
+    elements.viewer.addEventListener("close", onViewerClosed);
+    elements.viewer.addEventListener("click", (event) => {
+        if (event.target === elements.viewer) {
+            elements.viewer.close();
+        }
+    });
+    elements.viewer.addEventListener("keydown", (event) => {
+        if (event.key === "ArrowLeft") {
+            stepViewer(-1);
+        } else if (event.key === "ArrowRight") {
+            stepViewer(1);
+        }
+    });
 }
 
 function openFilePicker() {
@@ -194,8 +356,21 @@ async function initLibraryPage() {
     }
     elements.fileInput.addEventListener("change", () => uploadFiles([...elements.fileInput.files]));
     elements.cleanButton.addEventListener("click", removeDuplicates);
+    elements.selectAllButton.addEventListener("click", selectAll);
+    elements.cancelSelectionButton.addEventListener("click", clearSelection);
+    elements.deleteSelectionButton.addEventListener("click", deleteSelection);
+    document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape" && state.selected.size > 0 && !elements.viewer.open) {
+            clearSelection();
+        }
+    });
+    bindViewer();
+
     await refresh();
     document.getElementById("contenu").hidden = false;
+
+    openPhotoFromHash();
+    window.addEventListener("hashchange", openPhotoFromHash);
 }
 
 initLibraryPage();
