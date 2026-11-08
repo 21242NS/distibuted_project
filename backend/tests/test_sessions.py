@@ -9,6 +9,7 @@ CREDENTIALS = {"username": "alice", "password": "Password123"}
 
 def login(client):
     client.post("/api/signup", json=CREDENTIALS)
+    client.post("/api/logout")
     return client.post("/api/login", json=CREDENTIALS)
 
 
@@ -76,8 +77,24 @@ def test_expired_session_is_rejected_and_removed(client, session_factory):
 
 def test_failed_login_does_not_create_a_session(client, session_factory):
     client.post("/api/signup", json=CREDENTIALS)
+    client.post("/api/logout")
     response = client.post("/api/login", json={"username": "alice", "password": "Wrong12345"})
     assert response.status_code == 401
     assert "set-cookie" not in response.headers
     with session_factory() as db:
         assert db.scalars(select(UserSession)).first() is None
+
+
+def test_signup_logs_the_new_user_in(client):
+    response = client.post("/api/signup", json={"username": "newbie", "password": "Password123"})
+    assert response.status_code == 200
+    assert response.json()["username"] == "newbie"
+    assert "HttpOnly" in response.headers["set-cookie"]
+    assert client.get("/api/me").json() == {"username": "newbie"}
+
+
+def test_failed_signup_does_not_log_in(client):
+    response = client.post("/api/signup", json={"username": "a!", "password": "Password123"})
+    assert response.status_code == 400
+    assert "set-cookie" not in response.headers
+    assert client.get("/api/me").status_code == 401

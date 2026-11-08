@@ -60,7 +60,8 @@ def signup(credentials: Credentials, response: Response, db: Session = Depends(g
         response.status_code = status.HTTP_409_CONFLICT
         return {"error": "Username already exists"}
 
-    db.add(User(username=credentials.username, password_hash=hash_password(credentials.password)))
+    user = User(username=credentials.username, password_hash=hash_password(credentials.password))
+    db.add(user)
     try:
         db.commit()
     except IntegrityError:
@@ -68,7 +69,8 @@ def signup(credentials: Credentials, response: Response, db: Session = Depends(g
         response.status_code = status.HTTP_409_CONFLICT
         return {"error": "Username already exists"}
 
-    return {"message": "Signup successful"}
+    open_session(db, user, response)
+    return {"message": "Signup successful", "username": user.username}
 
 
 @router.post("/login")
