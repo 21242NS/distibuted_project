@@ -12,7 +12,7 @@ def test_health_check():
 def test_readiness_check():
     response = client.get("/api/ready")
     assert response.status_code == 200
-    assert response.json() == {"status": "ready"}
+    assert response.json() == {"status": "ready", "cache": "disabled"}
 def test_metrics_endpoint():
     response = client.get("/metrics")
     assert response.status_code == 200

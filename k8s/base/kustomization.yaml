@@ -8,4 +8,6 @@ resources:
   - frontend/deployment.yaml
   - frontend/service.yaml
   - frontend/pdb.yaml
+  - redis/deployment.yaml
+  - redis/service.yaml
   - ingress.yaml

@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Response, status
 from sqlalchemy import text
 
+from app import cache
 from app.database import engine
 
 router = APIRouter(prefix="/api")
@@ -20,4 +21,4 @@ def readiness_check(response: Response):
         except Exception:
             response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
             return {"status": "database unavailable"}
-    return {"status": "ready"}
+    return {"status": "ready", "cache": cache.status()}

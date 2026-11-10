@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 from app.config import SESSION_COOKIE_NAME
 from app.database import get_db
 from app.models import User
-from app.sessions import close_session, open_session, require_user
+from app.sessions import CurrentUser, close_session, open_session, require_user
 
 router = APIRouter(prefix="/api")
 password_hasher = PasswordHasher(time_cost=2, memory_cost=19456, parallelism=1)
@@ -95,5 +95,5 @@ def logout(
 
 
 @router.get("/me")
-def me(user: User = Depends(require_user)):
+def me(user: CurrentUser = Depends(require_user)):
     return {"username": user.username}

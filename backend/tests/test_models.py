@@ -29,4 +29,4 @@ def test_ready_without_database(monkeypatch):
 
     from app.main import app
 
-    assert TestClient(app).get("/api/ready").json() == {"status": "ready"}
+    assert TestClient(app).get("/api/ready").json() == {"status": "ready", "cache": "disabled"}

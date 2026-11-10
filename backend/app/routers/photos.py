@@ -8,9 +8,11 @@ from pydantic import BaseModel
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session, undefer
 
+from app import cache
+from app.config import PHOTO_CONTENT_CACHE_MAX_BYTES, PHOTO_CONTENT_CACHE_SECONDS, PHOTO_LIST_CACHE_SECONDS
 from app.database import get_db
-from app.models import Photo, User
-from app.sessions import require_user
+from app.models import Photo
+from app.sessions import CurrentUser, require_user
 
 router = APIRouter(prefix="/api/photos")
 
@@ -61,11 +63,41 @@ def to_out(photo: Photo) -> PhotoOut:
     )
 
 
-def photos_of(db: Session, user: User) -> list[Photo]:
-    return list(
-        db.scalars(
+def list_key(user_id: int) -> str:
+    return f"photos:{user_id}"
+
+
+def content_key(user_id: int, photo_id: uuid.UUID) -> str:
+    return f"photo:{user_id}:{photo_id}"
+
+
+def photos_of(db: Session, user: CurrentUser) -> list[PhotoOut]:
+    cached = cache.get_json("photo_list", list_key(user.id))
+    if cached is not None:
+        return [PhotoOut.model_validate(item) for item in cached]
+
+    photos = [
+        to_out(photo)
+        for photo in db.scalars(
             select(Photo).where(Photo.user_id == user.id).order_by(Photo.created_at.desc())
-        ).all()
+        )
+    ]
+    cache.set_json(
+        list_key(user.id),
+        [photo.model_dump(mode="json") for photo in photos],
+        PHOTO_LIST_CACHE_SECONDS,
+    )
+    return photos
+
+
+def image_response(content: bytes, content_type: str) -> Response:
+    return Response(
+        content=content,
+        media_type=content_type,
+        headers={
+            "Cache-Control": "private, max-age=86400, immutable",
+            "X-Content-Type-Options": "nosniff",
+        },
     )
 
 
@@ -75,15 +107,15 @@ def clean_filename(name: str | None) -> str:
 
 
 @router.get("", response_model=PhotoList)
-def list_photos(user: User = Depends(require_user), db: Session = Depends(get_db)):
+def list_photos(user: CurrentUser = Depends(require_user), db: Session = Depends(get_db)):
     photos = photos_of(db, user)
-    return PhotoList(photos=[to_out(photo) for photo in photos], count=len(photos))
+    return PhotoList(photos=photos, count=len(photos))
 
 
 @router.post("", response_model=UploadResult, status_code=status.HTTP_201_CREATED)
 def upload_photo(
     file: UploadFile = File(...),
-    user: User = Depends(require_user),
+    user: CurrentUser = Depends(require_user),
     db: Session = Depends(get_db),
 ):
     if file.content_type not in ALLOWED_TYPES:
@@ -114,12 +146,13 @@ def upload_photo(
     )
     db.add(photo)
     db.commit()
+    cache.delete(list_key(user.id))
     return UploadResult(photo=to_out(photo), duplicate=duplicate)
 
 
 @router.get("/duplicates", response_model=DuplicateReport)
-def list_duplicates(user: User = Depends(require_user), db: Session = Depends(get_db)):
-    by_hash: dict[str, list[Photo]] = defaultdict(list)
+def list_duplicates(user: CurrentUser = Depends(require_user), db: Session = Depends(get_db)):
+    by_hash: dict[str, list[PhotoOut]] = defaultdict(list)
     for photo in reversed(photos_of(db, user)):
         by_hash[photo.sha256].append(photo)
 
@@ -128,7 +161,7 @@ def list_duplicates(user: User = Depends(require_user), db: Session = Depends(ge
             sha256=digest,
             size=photos[0].size,
             count=len(photos),
-            photos=[to_out(photo) for photo in photos],
+            photos=photos,
         )
         for digest, photos in by_hash.items()
         if len(photos) > 1
@@ -141,7 +174,13 @@ def list_duplicates(user: User = Depends(require_user), db: Session = Depends(ge
 
 
 @router.get("/{photo_id}/content")
-def photo_content(photo_id: uuid.UUID, user: User = Depends(require_user), db: Session = Depends(get_db)):
+def photo_content(photo_id: uuid.UUID, user: CurrentUser = Depends(require_user), db: Session = Depends(get_db)):
+    key = content_key(user.id, photo_id)
+    cached = cache.get_bytes("photo_content", key)
+    if cached is not None:
+        content_type, _, content = cached.partition(b"\n")
+        return image_response(content, content_type.decode())
+
     photo = db.scalars(
         select(Photo)
         .options(undefer(Photo.content))
@@ -149,21 +188,17 @@ def photo_content(photo_id: uuid.UUID, user: User = Depends(require_user), db: S
     ).first()
     if photo is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Photo not found")
-    return Response(
-        content=photo.content,
-        media_type=photo.content_type,
-        headers={
-            "Cache-Control": "private, max-age=86400, immutable",
-            "X-Content-Type-Options": "nosniff",
-        },
-    )
+    if photo.size <= PHOTO_CONTENT_CACHE_MAX_BYTES:
+        cache.set_bytes(key, photo.content_type.encode() + b"\n" + photo.content, PHOTO_CONTENT_CACHE_SECONDS)
+    return image_response(photo.content, photo.content_type)
 
 
 @router.delete("/{photo_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_photo(photo_id: uuid.UUID, user: User = Depends(require_user), db: Session = Depends(get_db)):
+def delete_photo(photo_id: uuid.UUID, user: CurrentUser = Depends(require_user), db: Session = Depends(get_db)):
     result = db.execute(delete(Photo).where(Photo.user_id == user.id, Photo.id == photo_id))
     if result.rowcount == 0:
         db.rollback()
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Photo not found")
     db.commit()
+    cache.delete(list_key(user.id), content_key(user.id, photo_id))
     return Response(status_code=status.HTTP_204_NO_CONTENT)

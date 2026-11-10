@@ -6,3 +6,4 @@ psycopg[binary]
 alembic
 argon2-cffi
 python-multipart
+redis

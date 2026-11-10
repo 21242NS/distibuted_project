@@ -21,6 +21,9 @@ spec:
         - name: backend
           image: photo-backend:v1      
           imagePullPolicy: IfNotPresent  
+          env:
+            - name: REDIS_URL
+              value: redis://redis:6379/0
           ports:
             - name: http
               containerPort: 8000

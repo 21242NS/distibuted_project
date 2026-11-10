@@ -78,6 +78,7 @@ deploy_overlay() {
   k apply -f - <<<"$rendered"
 
   log "Attente du rolling update"
+  k rollout status deployment/redis    -n "$NAMESPACE" --timeout=120s
   k rollout status deployment/backend  -n "$NAMESPACE" --timeout=180s
   k rollout status deployment/frontend -n "$NAMESPACE" --timeout=180s
   k get pods -n "$NAMESPACE" -o wide
