@@ -34,7 +34,7 @@ Le compte `team3` dispose de droits limités à son namespace :
 
 Le pipeline en tient compte :
 
-- l'initialisation de Citus et les migrations s'exécutent dans des **Pods** ponctuels (`k8s/tasks/`, `restartPolicy: Never`), dont le script de déploiement suit l'état jusqu'à `Succeeded` ou `Failed` ;
+- l'initialisation de Citus, les migrations et l'[export pour la base de test](../refresh-test.md) s'exécutent dans des **Pods** ponctuels (`k8s/tasks/`, `restartPolicy: Never`), dont le script de déploiement suit l'état jusqu'à `Succeeded` ou `Failed` ;
 - les volumes de la base sont créés par le contrôleur StatefulSet à partir des `volumeClaimTemplates` (1 Gi par pod). La politique de rétention `Retain` conserve les données même si le StatefulSet est supprimé ;
 - la disponibilité pendant les mises à jour repose sur la stratégie de rolling update et sur les 3 réplicas, en l'absence de PodDisruptionBudget.
 

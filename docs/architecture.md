@@ -48,7 +48,7 @@ Le backend est **sans état** : sessions et données sont en base, le cache dans
 | `k8s/base/` | Manifests communs à tous les environnements |
 | `k8s/components/citus/` | Base de données, ajoutée par les overlays |
 | `k8s/overlays/{dev,test,prod}/` | Spécificités de chaque environnement |
-| `k8s/tasks/` | Pods ponctuels : initialisation de Citus, migrations |
+| `k8s/tasks/` | Pods ponctuels : initialisation de Citus, migrations, export anonymisé |
 | `scripts/` | Déploiement, smoke test, test de charge, contrôle de disponibilité |
 | `platform/` | Configuration de Prometheus et Grafana, dashboards |
 | `.github/workflows/` | Pipeline CI/CD et publication de la documentation |

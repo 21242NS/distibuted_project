@@ -61,6 +61,7 @@ nav:
   - Base de données:
       - Sharding et réplication: infrastructure/base-de-donnees.md
       - Migrations de schéma: migrations.md
+      - Refresh de la base de test: refresh-test.md
   - Monitoring et scaling:
       - Monitoring: infrastructure/monitoring.md
       - Scaling: infrastructure/scaling.md

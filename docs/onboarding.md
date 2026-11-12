@@ -117,6 +117,14 @@ flowchart LR
 1. La lire dans `backend/app/config.py`, avec une valeur par défaut.
 2. Si elle diffère selon l'environnement, l'ajouter dans `k8s/base/backend/deployment.yaml`, puis la surcharger dans l'overlay concerné.
 
+### Obtenir des données réalistes en test
+
+```bash
+./scripts/refresh-test-db.sh
+```
+
+Les comptes importés s'appellent `user_<id>`, avec le mot de passe `TestPhotos2026`. Voir [Refresh de la base de test](refresh-test.md).
+
 ### Modifier le frontend
 
 Les fichiers sont servis tels quels par Nginx, sans étape de build. Après modification, `./scripts/deploy.sh dev` reconstruit l'image. Les messages de l'interface sont en français.

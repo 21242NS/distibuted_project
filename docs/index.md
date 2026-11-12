@@ -21,7 +21,7 @@ Photo Library Service est une application web de bibliothèque photo. Chaque uti
 |---|---|
 | Installation du cluster | [Cluster local](cluster/installation-locale.md) · [Migration vers le cloud](cluster/migration-cloud.md) · [Environnements](infrastructure/kubernetes.md) |
 | Pipeline CI/CD | [Du push à la production](pipeline.md) · [Zéro downtime](zero-downtime.md) |
-| Base de données | [Sharding et réplication](infrastructure/base-de-donnees.md) · [Migrations de schéma](migrations.md) |
+| Base de données | [Sharding et réplication](infrastructure/base-de-donnees.md) · [Migrations de schéma](migrations.md) · [Refresh de la base de test](refresh-test.md) |
 | Monitoring et scaling | [Monitoring](infrastructure/monitoring.md) · [Scaling](infrastructure/scaling.md) |
 | Nouveaux développeurs | [Onboarding](onboarding.md) |
 | Application | [API](application/api.md) · [Sessions](application/sessions.md) · [Cache Redis](infrastructure/cache.md) |
