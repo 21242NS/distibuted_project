@@ -1,0 +1,34 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: db-export
+  labels: { app: db-export, tier: task }
+spec:
+  restartPolicy: Never
+  containers:
+    - name: export
+      image: citusdata/citus:alpine@sha256:982a8483148d62b7d0dfaf3014f341543f53078e94dc47241a19b4fcc2391e00
+      command: ["sh", "-c"]
+      args:
+        - |
+          set -e
+          until pg_isready -q -h citus-coordinator -U postgres -d photos; do sleep 2; done
+          psql -v ON_ERROR_STOP=1 -qAt -h citus-coordinator -U postgres -d photos <<'SQL'
+          BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY;
+          \echo ==schema==
+          SELECT version_num FROM alembic_version;
+          \echo ==users==
+          COPY (SELECT id FROM users ORDER BY id) TO STDOUT WITH (FORMAT csv);
+          \echo ==photos==
+          COPY (
+            SELECT user_id, id, created_at,
+                   dense_rank() OVER (PARTITION BY user_id ORDER BY sha256) AS content_group
+            FROM photos
+            ORDER BY user_id, created_at
+          ) TO STDOUT WITH (FORMAT csv);
+          \echo ==end==
+          COMMIT;
+          SQL
+      resources:
+        requests: { cpu: 50m, memory: 64Mi }
+        limits:   { cpu: 500m, memory: 256Mi }

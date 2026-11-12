@@ -1,0 +1,25 @@
+name: Refresh de la base de test
+on:
+  workflow_dispatch:
+    inputs:
+      source:
+        description: Environnement source
+        type: choice
+        options: [prod, dev]
+        default: prod
+
+concurrency:
+  group: deploy-test
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  refresh:
+    runs-on: self-hosted
+    steps:
+      - uses: actions/checkout@v4
+      - env:
+          SOURCE: ${{ inputs.source }}
+        run: ./scripts/refresh-test-db.sh "$SOURCE"
