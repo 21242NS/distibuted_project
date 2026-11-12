@@ -1,0 +1,75 @@
+site_name: Photo Library Service
+site_description: Pipeline de déploiement Kubernetes d'un service de bibliothèque photo
+site_author: Nicolas Schell
+repo_url: https://github.com/21242NS/distibuted_project
+repo_name: 21242NS/distibuted_project
+edit_uri: edit/main/docs/
+docs_dir: docs
+
+theme:
+  name: material
+  language: fr
+  features:
+    - navigation.sections
+    - navigation.top
+    - navigation.footer
+    - content.code.copy
+    - search.highlight
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: pink
+      accent: pink
+      toggle:
+        icon: material/weather-night
+        name: Mode sombre
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: pink
+      accent: pink
+      toggle:
+        icon: material/weather-sunny
+        name: Mode clair
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.details
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.highlight
+  - pymdownx.inlinehilite
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+
+nav:
+  - Accueil: index.md
+  - Architecture: architecture.md
+  - Installation du cluster:
+      - Cluster local: cluster/installation-locale.md
+      - Migration vers le cloud: cluster/migration-cloud.md
+      - Environnements Kubernetes: infrastructure/kubernetes.md
+  - Pipeline CI/CD:
+      - Du push à la production: pipeline.md
+      - Zéro downtime: zero-downtime.md
+  - Base de données:
+      - Sharding et réplication: infrastructure/base-de-donnees.md
+      - Migrations de schéma: migrations.md
+  - Monitoring et scaling:
+      - Monitoring: infrastructure/monitoring.md
+      - Scaling: infrastructure/scaling.md
+  - Onboarding: onboarding.md
+  - Application:
+      - API: application/api.md
+      - Authentification et sessions: application/sessions.md
+      - Cache Redis: infrastructure/cache.md
+  - Exploitation:
+      - Runbook: exploitation/runbook.md
+      - Sécurité: exploitation/securite.md
+      - Choix techniques et limites: choix-et-limites.md
