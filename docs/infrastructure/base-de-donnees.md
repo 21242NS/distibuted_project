@@ -16,10 +16,14 @@ Chaque nœud est un pod de StatefulSet avec son propre volume persistant de 1 Gi
 | `users` | Table de référence, copiée intégralement sur chaque worker | – |
 | `photos` | Distribuée | `user_id` |
 | `sessions` | Distribuée | `token_hash` |
+| `albums` | Distribuée, colocalisée avec `photos` | `user_id` |
+| `album_photos` | Distribuée, colocalisée avec `photos` | `user_id` |
 
 Toutes les requêtes sur les photos filtrent sur `user_id` : Citus les route vers **un seul shard**, sans requête dispersée sur l'ensemble des workers. Distribuer par `id` répartirait les photos d'un même utilisateur sur tous les shards, et chaque affichage de bibliothèque devrait alors interroger tous les workers.
 
 Les sessions sont distribuées par `token_hash`, car elles sont toujours recherchées par cette empreinte. La table `users`, petite et souvent jointe, est une table de référence : les jointures restent locales à chaque worker.
+
+Les tables `albums` et `album_photos` sont **colocalisées** avec `photos` (`colocate_with => 'photos'`) : les shards d'un même utilisateur se trouvent sur le même worker, et l'affichage d'un album, qui joint `album_photos` et `photos`, s'exécute entièrement sur ce worker.
 
 ## Réplication
 

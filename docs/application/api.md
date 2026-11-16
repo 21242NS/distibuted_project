@@ -35,6 +35,22 @@ Le champ `cache` de `/ready` vaut `ok`, `unavailable` ou `disabled`. Une panne d
 
 Une photo appartenant à un autre utilisateur renvoie `404`, comme une photo inexistante.
 
+## Albums
+
+Un album regroupe des photos de la bibliothèque. Une photo peut appartenir à plusieurs albums. Supprimer un album ne supprime pas ses photos ; supprimer une photo la retire de tous ses albums.
+
+| Méthode | Route | Corps | Description | Codes |
+|---|---|---|---|---|
+| GET | `/albums` | – | Albums de l'utilisateur, avec nombre de photos et couverture (dernière photo ajoutée) | 200 |
+| POST | `/albums` | `{"name"}` | Création | 201, 409, 422 |
+| PATCH | `/albums/{id}` | `{"name"}` | Renommage | 200, 404, 409, 422 |
+| DELETE | `/albums/{id}` | – | Suppression de l'album ; les photos sont conservées | 204, 404 |
+| GET | `/albums/{id}/photos` | – | Photos de l'album, des plus récentes aux plus anciennes | 200, 404 |
+| POST | `/albums/{id}/photos` | `{"photo_ids": [...]}` | Ajout ; les photos déjà présentes sont ignorées | 200, 404, 422 |
+| DELETE | `/albums/{id}/photos` | `{"photo_ids": [...]}` | Retrait de l'album, sans supprimer les photos | 200, 404, 422 |
+
+Le nom d'un album compte de 1 à 60 caractères, espaces superflus retirés, et doit être unique pour un utilisateur (`409` sinon). Les ajouts et retraits portent sur 500 photos au plus par requête. Un album ou une photo appartenant à un autre utilisateur renvoie `404`.
+
 ## Exemple
 
 ```bash

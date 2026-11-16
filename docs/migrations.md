@@ -21,6 +21,7 @@ Le schéma est donc toujours en avance sur le code, jamais en retard.
 | 0002 | Ajout de `users.password_hash`, nullable |
 | 0003 | Ajout de `username` et d'une séquence pour `user_id` |
 | 0004 | Table `sessions`, distribuée par `token_hash` |
+| 0005 | Tables `albums` et `album_photos`, distribuées par `user_id` et colocalisées avec `photos` |
 
 ## Compatibilité avec le rolling update : expand / contract
 
