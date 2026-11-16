@@ -1,4 +1,7 @@
 const ACCEPTED_TYPES = ["image/jpeg", "image/png", "image/gif", "image/webp"];
+const MAX_PHOTO_BYTES = 10 * 1024 * 1024;
+const PARALLEL_UPLOADS = 3;
+const FAILED_CARD_DELAY_MS = 450;
 
 const UPLOAD_ERRORS = {
     400: "fichier vide",
@@ -13,7 +16,6 @@ const elements = {
     selectionToolbar: document.getElementById("selection-toolbar"),
     fileInput: document.getElementById("file-input"),
     importButton: document.getElementById("import-button"),
-    importLabel: document.querySelector("#import-button span"),
     statPhotos: document.getElementById("stat-photos"),
     statDuplicates: document.getElementById("stat-duplicates"),
     chipDuplicates: document.getElementById("chip-duplicates"),
@@ -45,8 +47,13 @@ const state = {
     extraCopies: [],
     selected: new Set(),
     viewerIndex: -1,
-    uploading: false,
+    report: { groups: [], duplicate_count: 0, recoverable_bytes: 0 },
+    activeUploads: 0,
+    refreshSeq: 0,
+    pendingSeq: 0,
 };
+
+const previews = new Map();
 
 function plural(count, singular, pluralForm = `${singular}s`) {
     return `${count} ${count > 1 ? pluralForm : singular}`;
@@ -72,7 +79,19 @@ function formatDate(value, withTime = false) {
 }
 
 function contentUrl(photo) {
-    return `${API_URL}photos/${photo.id}/content`;
+    return previews.get(photo.id) || `${API_URL}photos/${photo.id}/content`;
+}
+
+function confirmedPhotos() {
+    return state.photos.filter((photo) => !photo.pending);
+}
+
+function forgetPreview(id) {
+    const url = previews.get(id);
+    if (url) {
+        URL.revokeObjectURL(url);
+        previews.delete(id);
+    }
 }
 
 function goToLogin() {
@@ -89,17 +108,21 @@ function buildCard(photo) {
     card.dataset.id = photo.id;
     card.classList.toggle("is-duplicate", isDuplicate);
     card.classList.toggle("is-selected", isSelected);
+    card.classList.toggle("is-pending", Boolean(photo.pending));
+    card.setAttribute("aria-busy", photo.pending ? "true" : "false");
 
     const open = document.createElement("button");
     open.type = "button";
     open.className = "photo-open";
     open.setAttribute("aria-label", `Voir ${photo.filename}`);
-    open.title = `${photo.filename} · ${formatBytes(photo.size)} · ${formatDate(photo.created_at)}`;
+    open.title = photo.pending
+        ? `${photo.filename} · import en cours…`
+        : `${photo.filename} · ${formatBytes(photo.size)} · ${formatDate(photo.created_at)}`;
     open.addEventListener("click", () => {
-        if (state.selected.size > 0) {
-            toggleSelection(photo.id);
-        } else {
+        if (state.selected.size === 0) {
             openViewer(photo.id);
+        } else if (!photo.pending) {
+            toggleSelection(photo.id);
         }
     });
 
@@ -117,7 +140,18 @@ function buildCard(photo) {
         badge.textContent = "Doublon";
         frame.append(badge);
     }
+    if (photo.pending) {
+        const progress = document.createElement("span");
+        progress.className = "photo-progress";
+        progress.setAttribute("aria-hidden", "true");
+        frame.append(progress);
+    }
     open.append(frame);
+
+    if (photo.pending) {
+        card.append(open);
+        return card;
+    }
 
     const check = document.createElement("label");
     check.className = "photo-check";
@@ -139,9 +173,13 @@ function renderGrid() {
 
 function syncCards() {
     for (const card of elements.grid.children) {
+        const box = card.querySelector(".photo-check input");
+        if (!box) {
+            continue;
+        }
         const selected = state.selected.has(card.dataset.id);
         card.classList.toggle("is-selected", selected);
-        card.querySelector(".photo-check input").checked = selected;
+        box.checked = selected;
     }
     renderSelection();
 }
@@ -154,16 +192,28 @@ function renderSelection() {
     elements.libraryBar.classList.toggle("is-selecting", selecting);
     elements.grid.classList.toggle("selecting", selecting);
     elements.selectionCount.textContent = plural(count, "photo sélectionnée", "photos sélectionnées");
-    elements.selectAllButton.hidden = count === state.photos.length;
+    elements.selectAllButton.hidden = count === confirmedPhotos().length;
 }
 
-function render(photos, report) {
-    state.photos = photos;
+function applyServerState(photos, report) {
+    const pending = state.photos.filter((photo) => photo.pending);
+    state.photos = [...pending, ...photos];
+    state.report = report;
     state.extraCopies = report.groups.flatMap((group) => group.photos.slice(1).map((photo) => photo.id));
     state.duplicateIds = new Set(state.extraCopies);
     const existing = new Set(photos.map((photo) => photo.id));
     state.selected = new Set([...state.selected].filter((id) => existing.has(id)));
+    for (const id of [...previews.keys()]) {
+        if (!existing.has(id) && !id.startsWith("pending-")) {
+            forgetPreview(id);
+        }
+    }
+    render();
+}
 
+function render() {
+    const photos = state.photos;
+    const report = state.report;
     elements.statPhotos.textContent = String(photos.length);
     elements.statDuplicates.textContent = String(report.duplicate_count);
     document.getElementById("label-photos").textContent = photos.length > 1 ? "photos" : "photo";
@@ -182,7 +232,11 @@ function render(photos, report) {
 }
 
 async function refresh() {
+    const seq = ++state.refreshSeq;
     const [list, duplicates] = await Promise.all([callApi("photos"), callApi("photos/duplicates")]);
+    if (seq !== state.refreshSeq) {
+        return;
+    }
     if (list.status === 401 || duplicates.status === 401) {
         goToLogin();
         return;
@@ -191,7 +245,7 @@ async function refresh() {
         toast("Impossible de charger vos photos. Réessayez dans un instant.", "error");
         return;
     }
-    render(list.data.photos, duplicates.data);
+    applyServerState(list.data.photos, duplicates.data);
 }
 
 function toggleSelection(id) {
@@ -204,7 +258,7 @@ function toggleSelection(id) {
 }
 
 function selectAll() {
-    state.selected = new Set(state.photos.map((photo) => photo.id));
+    state.selected = new Set(confirmedPhotos().map((photo) => photo.id));
     syncCards();
 }
 
@@ -217,7 +271,10 @@ async function deletePhotos(ids) {
     let removed = 0;
     for (const id of ids) {
         const { ok, status } = await callApi(`photos/${id}`, { method: "DELETE" });
-        removed += ok || status === 404 ? 1 : 0;
+        if (ok || status === 404) {
+            removed += 1;
+            forgetPreview(id);
+        }
     }
     return removed;
 }
@@ -269,46 +326,157 @@ async function removeDuplicates() {
     await refresh();
 }
 
-function setUploading(uploading, label = "Importer des photos") {
-    state.uploading = uploading;
-    elements.importButton.disabled = uploading;
-    elements.importLabel.textContent = label;
+function rejectionReason(file) {
+    if (!ACCEPTED_TYPES.includes(file.type)) {
+        return UPLOAD_ERRORS[415];
+    }
+    if (file.size > MAX_PHOTO_BYTES) {
+        return UPLOAD_ERRORS[413];
+    }
+    if (file.size === 0) {
+        return UPLOAD_ERRORS[400];
+    }
+    return null;
+}
+
+function addPendingPhoto(file) {
+    state.pendingSeq += 1;
+    const entry = {
+        id: `pending-${state.pendingSeq}`,
+        pending: true,
+        filename: file.name,
+        content_type: file.type,
+        size: file.size,
+        created_at: new Date().toISOString(),
+    };
+    previews.set(entry.id, URL.createObjectURL(file));
+    state.photos.unshift(entry);
+    return entry;
+}
+
+function confirmPendingPhoto(entry, photo, duplicate) {
+    const index = state.photos.indexOf(entry);
+    previews.set(photo.id, previews.get(entry.id));
+    previews.delete(entry.id);
+    if (index !== -1) {
+        state.photos[index] = photo;
+    }
+    if (duplicate && !state.duplicateIds.has(photo.id)) {
+        state.duplicateIds.add(photo.id);
+        state.extraCopies.push(photo.id);
+        state.report = {
+            ...state.report,
+            duplicate_count: state.report.duplicate_count + 1,
+            recoverable_bytes: state.report.recoverable_bytes + photo.size,
+        };
+    }
+    if (state.viewerIndex === index) {
+        showInViewer(index);
+    }
+    render();
+}
+
+function dropPendingPhoto(entry) {
+    const index = state.photos.indexOf(entry);
+    if (index !== -1) {
+        state.photos.splice(index, 1);
+    }
+    if (elements.viewer.open && state.viewerIndex === index) {
+        elements.viewer.close();
+    } else if (state.viewerIndex > index) {
+        state.viewerIndex -= 1;
+    }
+    const card = elements.grid.querySelector(`[data-id="${entry.id}"]`);
+    const finish = () => {
+        forgetPreview(entry.id);
+        render();
+    };
+    if (!card || window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+        finish();
+        return;
+    }
+    card.classList.add("is-failed");
+    setTimeout(finish, FAILED_CARD_DELAY_MS);
+}
+
+async function sendPhoto(entry, file) {
+    const form = new FormData();
+    form.append("file", file);
+    const { ok, status, data } = await callApi("photos", { method: "POST", body: form });
+    if (ok) {
+        confirmPendingPhoto(entry, data.photo, data.duplicate);
+        return { ok: true, duplicate: data.duplicate };
+    }
+    dropPendingPhoto(entry);
+    return { ok: false, status, reason: `${file.name} (${UPLOAD_ERRORS[status] || "erreur du serveur"})` };
+}
+
+async function runWithLimit(jobs, limit) {
+    const results = [];
+    let next = 0;
+    const worker = async () => {
+        while (next < jobs.length) {
+            const index = next++;
+            results[index] = await jobs[index]();
+        }
+    };
+    await Promise.all(Array.from({ length: Math.min(limit, jobs.length) }, worker));
+    return results;
+}
+
+function reportBatch(results, rejected) {
+    const imported = results.filter((result) => result.ok);
+    const duplicates = imported.filter((result) => result.duplicate).length;
+    const failures = [...rejected, ...results.filter((result) => !result.ok).map((result) => result.reason)];
+
+    if (imported.length > 0) {
+        const suffix = duplicates > 0 ? `, dont ${plural(duplicates, "doublon")}` : "";
+        toast(`${plural(imported.length, "photo importée", "photos importées")}${suffix}.`, "success");
+    }
+    if (failures.length > 0) {
+        toast(`Non importé : ${failures.join(", ")}.`, "error");
+    }
 }
 
 async function uploadFiles(files) {
-    if (files.length === 0 || state.uploading) {
+    elements.fileInput.value = "";
+    if (files.length === 0) {
         return;
     }
-    const images = files.filter((file) => ACCEPTED_TYPES.includes(file.type));
-    const failures = files
-        .filter((file) => !ACCEPTED_TYPES.includes(file.type))
-        .map((file) => `${file.name} (${UPLOAD_ERRORS[415]})`);
-
-    let imported = 0;
-    let duplicates = 0;
-    for (const [index, file] of images.entries()) {
-        setUploading(true, `Import ${index + 1}/${images.length}…`);
-        const form = new FormData();
-        form.append("file", file);
-        const { ok, status, data } = await callApi("photos", { method: "POST", body: form });
-        if (ok) {
-            imported += 1;
-            duplicates += data.duplicate ? 1 : 0;
+    const rejected = [];
+    const accepted = [];
+    for (const file of files) {
+        const reason = rejectionReason(file);
+        if (reason) {
+            rejected.push(`${file.name} (${reason})`);
         } else {
-            failures.push(`${file.name} (${UPLOAD_ERRORS[status] || "erreur du serveur"})`);
+            accepted.push(file);
         }
     }
-    setUploading(false);
-    elements.fileInput.value = "";
 
-    if (imported > 0) {
-        const suffix = duplicates > 0 ? `, dont ${plural(duplicates, "doublon")}` : "";
-        toast(`${plural(imported, "photo importée", "photos importées")}${suffix}.`, "success");
+    const entries = accepted.map((file) => ({ file, entry: addPendingPhoto(file) }));
+    if (entries.length > 0) {
+        render();
     }
-    if (failures.length > 0) {
-        toast(`Refusé : ${failures.join(", ")}.`, "error");
+
+    state.activeUploads += entries.length;
+    const results = await runWithLimit(
+        entries.map(({ file, entry }) => async () => {
+            const result = await sendPhoto(entry, file);
+            state.activeUploads -= 1;
+            return result;
+        }),
+        PARALLEL_UPLOADS,
+    );
+
+    if (results.some((result) => result.status === 401)) {
+        goToLogin();
+        return;
     }
-    await refresh();
+    reportBatch(results, rejected);
+    if (state.activeUploads === 0 && results.length > 0) {
+        await refresh();
+    }
 }
 
 function bindDragAndDrop() {
@@ -355,13 +523,16 @@ function showInViewer(index) {
     elements.viewerImage.src = contentUrl(photo);
     elements.viewerImage.alt = photo.filename;
     elements.viewerName.textContent = photo.filename;
-    elements.viewerMeta.textContent =
-        `${formatBytes(photo.size)} · ${photo.content_type} · importée le ${formatDate(photo.created_at, true)}`;
+    elements.viewerMeta.textContent = photo.pending
+        ? `${formatBytes(photo.size)} · ${photo.content_type} · import en cours…`
+        : `${formatBytes(photo.size)} · ${photo.content_type} · importée le ${formatDate(photo.created_at, true)}`;
     elements.viewerDuplicate.hidden = !state.duplicateIds.has(photo.id);
     elements.viewerPosition.textContent = `${index + 1} / ${state.photos.length}`;
     elements.viewerPrev.disabled = index === 0;
     elements.viewerNext.disabled = index === state.photos.length - 1;
-    history.replaceState(null, "", `#photo=${photo.id}`);
+    if (!photo.pending) {
+        history.replaceState(null, "", `#photo=${photo.id}`);
+    }
 }
 
 function openViewer(id) {
