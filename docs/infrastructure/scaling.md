@@ -71,7 +71,7 @@ Le scaling vertical se règle par les `requests` et `limits` de chaque Deploymen
 ## Ajouter un worker Citus
 
 1. Augmenter `replicas` dans `k8s/components/citus/workers.yaml` (par exemple de 2 à 3).
-2. Déployer. Le StatefulSet crée `citus-worker-2` avec son volume, puis `citus-init`, qui lit le nombre de réplicas, l'enregistre auprès du coordinator.
+2. Déployer. Le StatefulSet crée `citus-worker-2` avec son volume, puis `citus-init`, relancé parce que le nombre de workers a changé, l'enregistre auprès du coordinator.
 3. Les shards existants restent sur les anciens workers. Pour les répartir, depuis le coordinator :
 
 ```sql

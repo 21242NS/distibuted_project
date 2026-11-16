@@ -29,7 +29,7 @@ Le coordinator reste un point unique de défaillance : il détient les métadonn
 
 ## Initialisation
 
-Le Pod `citus-init` (`k8s/tasks/citus-init.yaml`) s'exécute à chaque déploiement, après le démarrage des StatefulSets et avant les migrations :
+Le Pod `citus-init` (`k8s/tasks/citus-init.yaml`) s'exécute après le démarrage des StatefulSets et avant les migrations :
 
 1. attente de la disponibilité du coordinator et de chaque worker ;
 2. enregistrement du coordinator (`citus_set_coordinator_host`) ;
@@ -37,6 +37,12 @@ Le Pod `citus-init` (`k8s/tasks/citus-init.yaml`) s'exécute à chaque déploiem
 4. réglage du facteur de réplication, puis rechargement de la configuration.
 
 Ces opérations sont idempotentes : les exécuter à nouveau sur un cluster déjà initialisé n'a aucun effet.
+
+Après une initialisation réussie, le script de déploiement enregistre le nombre de workers dans l'annotation `photos.team3/citus-initialized-workers` du StatefulSet `citus-worker`. Aux déploiements suivants, la tâche n'est relancée que si ce nombre a changé. On évite ainsi de demander un pod supplémentaire au cluster à chaque mise à jour, ce qui compte sur un cluster partagé dont la mémoire est limitée. Pour forcer une nouvelle initialisation :
+
+```bash
+FORCE_CITUS_INIT=1 ./scripts/deploy.sh dev
+```
 
 ## Vérification
 
