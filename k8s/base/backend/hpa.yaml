@@ -1,3 +1,4 @@
+# scale the backend on CPU usage (removed in prod, no permission on the school cluster)
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
@@ -7,7 +8,7 @@ spec:
     apiVersion: apps/v1
     kind: Deployment
     name: backend
-  minReplicas: 2
+  minReplicas: 2  # two pods minimum for availability
   maxReplicas: 8
   metrics:
     - type: Resource
@@ -15,4 +16,4 @@ spec:
         name: cpu
         target:
           type: Utilization
-          averageUtilization: 60
+          averageUtilization: 60  # add pods when the average CPU goes above 60% of the request

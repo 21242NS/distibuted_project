@@ -2,6 +2,7 @@
 set -euo pipefail
 source "$(dirname "$0")/lib.sh"
 
+# one-time setup of the local cluster: ingress, metrics and monitoring
 GRAFANA_ADMIN_PASSWORD="${GRAFANA_ADMIN_PASSWORD:-admin}"
 
 log "1/6 Vérification des outils"
@@ -28,6 +29,7 @@ ok "traefik, metrics-server, prometheus-community"
 log "4/6 Ingress Controller Traefik"
 helm upgrade --install traefik traefik/traefik --kube-context "$KUBE_CONTEXT" \
   --namespace traefik --create-namespace --wait >/dev/null
+# wait until Traefik answers on port 80
 for _ in $(seq 1 15); do
   code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 3 "$URL/")" || true
   [[ "$code" != "000" ]] && break
@@ -47,6 +49,7 @@ helm upgrade --install monitoring prometheus-community/kube-prometheus-stack --k
   -f "$ROOT_DIR/platform/monitoring-values.yaml" \
   --set grafana.adminPassword="$GRAFANA_ADMIN_PASSWORD" \
   --wait --timeout 10m >/dev/null
+# load the dashboard through the Grafana sidecar
 k create configmap grafana-dashboard-photo-library -n monitoring \
   --from-file="$ROOT_DIR/platform/grafana-dashboards/photo-library.json" \
   --dry-run=client -o yaml \

@@ -1,26 +1,30 @@
+# Helm values of kube-prometheus-stack, installed by scripts/setup-cluster.sh
 grafana:
   ingress:
     enabled: true
     ingressClassName: traefik
     hosts:
-      - grafana.photos.localhost
+      - grafana.photos.localhost  # http://grafana.photos.localhost
   sidecar:
     dashboards:
       enabled: true
-      label: grafana_dashboard
+      label: grafana_dashboard  # load every ConfigMap with this label as a dashboard
       searchNamespace: ALL
 
+# pick up the ServiceMonitors of every namespace, not only the Helm ones
 prometheus:
   prometheusSpec:
     serviceMonitorSelectorNilUsesHelmValues: false
     podMonitorSelectorNilUsesHelmValues: false
-    retention: 3d
+    retention: 3d  # keep three days of metrics
     resources:
       requests: { cpu: 100m, memory: 400Mi }
 
+# components disabled to save memory on Docker Desktop
 alertmanager:
   enabled: false
 
+# control plane not reachable on Docker Desktop
 kubeEtcd:
   enabled: false
 kubeControllerManager:
@@ -32,4 +36,4 @@ kubeProxy:
 
 prometheus-node-exporter:
   hostRootFsMount:
-    enabled: false
+    enabled: false  # host filesystem mount not supported on Docker Desktop

@@ -2,6 +2,7 @@
 set -euo pipefail
 source "$(dirname "$0")/lib.sh"
 
+# usage: ./scripts/refresh-test-db.sh [prod|dev]
 SOURCE_ENV="${1:-prod}"
 TEST_PASSWORD="${TEST_PASSWORD:-TestPhotos2026}"
 
@@ -16,19 +17,23 @@ DST_CONTEXT="$(context_for_env test)"
 DST_NS="$(namespace_for_env test)"
 DST_URL="$(url_for_env test)"
 
+# safety net: the target can never be production
 [[ "$DST_NS" == "test" && "$DST_CONTEXT" != "$(context_for_env prod)" ]] \
   || fail "la cible doit être l'environnement de test, jamais la production"
 
+# kubectl on the source and on the target environment
 src() { kubectl --context "$SRC_CONTEXT" -n "$SRC_NS" "$@"; }
 dst() { kubectl --context "$DST_CONTEXT" -n "$DST_NS" "$@"; }
 dst_sql() { dst exec -i citus-coordinator-0 -- psql -v ON_ERROR_STOP=1 -qAt -U postgres -d photos "$@"; }
 
+# temporary files, removed with the export pod on exit
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"; src delete pod db-export --ignore-not-found --wait=false >/dev/null 2>&1 || true' EXIT
 
 log "Refresh de la base de test depuis '$SOURCE_ENV' ($SRC_CONTEXT, namespace $SRC_NS)"
 dst get pod citus-coordinator-0 >/dev/null 2>&1 || fail "base de test absente : lance d'abord ./scripts/deploy.sh test"
 
+# the anonymized export runs inside the source cluster, read only
 log "1/5 Export anonymisé depuis '$SOURCE_ENV' (lecture seule)"
 src delete pod db-export --ignore-not-found --wait=true >/dev/null
 src apply -f "$ROOT_DIR/k8s/tasks/db-export.yaml" >/dev/null
@@ -44,18 +49,21 @@ src delete pod db-export --wait=false >/dev/null
 SRC_SCHEMA="$(python3 "$ROOT_DIR/scripts/build_test_dataset.py" "$WORK/export.txt" --schema)"
 ok "export terminé (schéma $SRC_SCHEMA)"
 
+# the data must match the schema of the test database
 log "2/5 Vérification de la compatibilité des schémas"
 DST_SCHEMA="$(dst_sql -c "SELECT version_num FROM alembic_version")"
 [[ "$SRC_SCHEMA" == "$DST_SCHEMA" ]] \
   || fail "schémas différents ($SOURCE_ENV : $SRC_SCHEMA, test : $DST_SCHEMA) : déploie la même version en test avant le refresh"
 ok "schéma $DST_SCHEMA des deux côtés"
 
+# every test account gets the same known password
 log "3/5 Construction du jeu de données"
 PASSWORD_HASH="$(dst exec deploy/backend -- python -c \
   "import sys; from app.routers.login import hash_password; print(hash_password(sys.argv[1]))" "$TEST_PASSWORD")"
 python3 "$ROOT_DIR/scripts/build_test_dataset.py" "$WORK/export.txt" --password-hash "$PASSWORD_HASH" > "$WORK/dataset.sql"
 ok "$(du -h "$WORK/dataset.sql" | cut -f1 | tr -d ' ') de SQL généré"
 
+# the SQL file is a single transaction: all or nothing
 log "4/5 Remplacement des données de test (une seule transaction)"
 dst_sql < "$WORK/dataset.sql" >/dev/null
 if dst get deployment redis >/dev/null 2>&1; then
@@ -66,6 +74,7 @@ USERS="$(dst_sql -c "SELECT count(*) FROM users")"
 PHOTOS="$(dst_sql -c "SELECT count(*) FROM photos")"
 ok "$USERS utilisateurs, $PHOTOS photos"
 
+# the test environment must still work after the refresh
 log "5/5 Vérification"
 "$ROOT_DIR/scripts/smoke-test.sh" "$DST_URL" >/dev/null
 FIRST_USER="$(dst_sql -c "SELECT username FROM users ORDER BY id LIMIT 1")"

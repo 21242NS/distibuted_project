@@ -1,14 +1,15 @@
+# dev: Docker Desktop, local images, http://dev.photos.localhost
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 namespace: dev                         
 resources:
   - namespace.yaml
   - ../../base
-  - servicemonitor.yaml
+  - servicemonitor.yaml  # Prometheus scraping of the backend
 components:
   - ../../components/citus
 patches:
-  - path: ingress-patch.yaml
+  - path: ingress-patch.yaml  # change the ingress host
     target:
       kind: Ingress
       name: photos

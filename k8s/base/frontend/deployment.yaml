@@ -1,36 +1,37 @@
+# static pages served by nginx
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: frontend
 spec:
-  replicas: 2
+  replicas: 2  # two pods so a rolling update never stops the site
   selector:
     matchLabels:
       app: frontend
   strategy:
     type: RollingUpdate
     rollingUpdate:
-      maxUnavailable: 0
+      maxUnavailable: 0  # never remove a pod before its replacement is ready
       maxSurge: 1
   template:
     metadata:
       labels:
         app: frontend
     spec:
-      terminationGracePeriodSeconds: 45
+      terminationGracePeriodSeconds: 45  # leave time for the preStop and in-flight requests
       containers:
         - name: frontend
-          image: photo-frontend:v1
+          image: photo-frontend:v1  # tag replaced by scripts/lib.sh at deployment
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 80
           lifecycle:
             preStop:
               exec:
-                command: ["sleep", "10"]
+                command: ["sleep", "10"]  # let the load balancer stop sending traffic before shutdown
           readinessProbe:
             httpGet:
-              path: /healthz
+              path: /healthz  # health endpoint defined in the nginx config
               port: 80
             periodSeconds: 5
           livenessProbe:

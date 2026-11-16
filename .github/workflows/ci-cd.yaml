@@ -1,23 +1,23 @@
 name: CI/CD                         
-on:                                 
+on: # Trigger workflow on push, pull request, or manual dispatch                                 
   push:
     branches: [main]                
-    paths-ignore:                   
+    paths-ignore:  # a README change does not redeploy
       - "**.md"
       - ".gitignore"
   pull_request:
     branches: [main]                
   workflow_dispatch:                
-concurrency:
+concurrency:  # one deployment at a time, never cancelled halfway
   group: deploy-test
   cancel-in-progress: false
 
-permissions:
+permissions: # Set permissions for the workflow
   contents: read
-  packages: write
+  packages: write  # push the images to GHCR
 
 jobs:
- 
+  # Run unit tests
   tests:
     runs-on: ubuntu-latest         
     defaults:
@@ -37,6 +37,7 @@ jobs:
 
       - name: Run unit tests            
         run: pytest -v
+  # Deploy to test environment and run smoke tests
   deploy-test:
     needs: tests                    
     if: github.event_name != 'pull_request'   
@@ -47,13 +48,13 @@ jobs:
       - name: Build, push to GHCR, deploy & smoke test
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: ./scripts/deploy.sh test "sha-${GITHUB_SHA::7}"
-  deploy-prod:
-    needs: deploy-test
+        run: ./scripts/deploy.sh test "sha-${GITHUB_SHA::7}"  # the image tag is the short commit SHA
+  deploy-prod: # Deploy to production environment
+    needs: deploy-test  # only after test is deployed and smoke tested
     if: github.event_name != 'pull_request'
     runs-on: self-hosted
-    environment: production
+    environment: production  # deployment tracked in the GitHub "production" environment
     steps:
       - uses: actions/checkout@v4
-      - run: ./scripts/promote_prod.sh "sha-${GITHUB_SHA::7}"
+      - run: ./scripts/promote_prod.sh "sha-${GITHUB_SHA::7}"  # promote the exact images validated in test
         

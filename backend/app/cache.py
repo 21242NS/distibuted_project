@@ -10,33 +10,38 @@ from app.config import REDIS_URL
 
 logger = logging.getLogger(__name__)
 
-RETRY_AFTER_SECONDS = 5.0
+RETRY_AFTER_SECONDS = 5.0  # back-off delay after a Redis failure
 
+# Prometheus counter used to compute the cache hit ratio in Grafana
 CACHE_LOOKUPS = Counter(
     "photo_cache_lookups_total",
     "Lectures dans le cache Redis, par cache et par résultat",
     ["cache", "result"],
 )
 
+# short timeouts: the cache must never slow down a request
 client: redis.Redis | None = (
     redis.Redis.from_url(REDIS_URL, socket_timeout=0.25, socket_connect_timeout=0.25)
     if REDIS_URL
     else None
 )
-unavailable_until = 0.0
+unavailable_until = 0.0  # monotonic time until which Redis is ignored
 
 
 def available() -> bool:
+    """tell if Redis is configured and not in its back-off window"""
     return client is not None and time.monotonic() >= unavailable_until
 
 
 def mark_unavailable(error: Exception) -> None:
+    """skip Redis for a few seconds after an error so requests stay fast"""
     global unavailable_until
     unavailable_until = time.monotonic() + RETRY_AFTER_SECONDS
     logger.warning("Redis indisponible, cache ignoré pendant %.0f s : %s", RETRY_AFTER_SECONDS, error)
 
 
 def get_bytes(cache: str, key: str) -> bytes | None:
+    """read a raw value from Redis, None on miss or when Redis is down"""
     if not available():
         return None
     try:
@@ -50,6 +55,7 @@ def get_bytes(cache: str, key: str) -> bytes | None:
 
 
 def set_bytes(key: str, value: bytes, ttl_seconds: int) -> None:
+    """store a raw value with a TTL, silently ignored when Redis is down"""
     if ttl_seconds < 1 or not available():
         return
     try:
@@ -59,15 +65,18 @@ def set_bytes(key: str, value: bytes, ttl_seconds: int) -> None:
 
 
 def get_json(cache: str, key: str) -> Any | None:
+    """read and decode a JSON value from Redis"""
     raw = get_bytes(cache, key)
     return None if raw is None else json.loads(raw)
 
 
 def set_json(key: str, value: Any, ttl_seconds: int) -> None:
+    """encode and store a JSON value in Redis"""
     set_bytes(key, json.dumps(value).encode(), ttl_seconds)
 
 
 def delete(*keys: str) -> None:
+    """invalidate one or more keys"""
     if not keys or not available():
         return
     try:
@@ -77,6 +86,7 @@ def delete(*keys: str) -> None:
 
 
 def status() -> str:
+    """report the cache state for the readiness probe"""
     if client is None:
         return "disabled"
     try:

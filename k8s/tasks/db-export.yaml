@@ -1,19 +1,22 @@
+# one-shot task: anonymized export of the database, run by scripts/refresh-test-db.sh
 apiVersion: v1
 kind: Pod
 metadata:
   name: db-export
   labels: { app: db-export, tier: task }
 spec:
-  restartPolicy: Never
+  restartPolicy: Never  # a task runs once, it is never restarted
   containers:
     - name: export
       image: citusdata/citus:alpine@sha256:982a8483148d62b7d0dfaf3014f341543f53078e94dc47241a19b4fcc2391e00
+      # only ids, dates and duplicate groups leave the database: no names, files or images
       command: ["sh", "-c"]
       args:
         - |
           set -e
           until pg_isready -q -h citus-coordinator -U postgres -d photos; do sleep 2; done
           psql -v ON_ERROR_STOP=1 -qAt -h citus-coordinator -U postgres -d photos <<'SQL'
+          -- consistent and read-only snapshot
           BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY;
           \echo ==schema==
           SELECT version_num FROM alembic_version;
@@ -21,6 +24,7 @@ spec:
           COPY (SELECT id FROM users ORDER BY id) TO STDOUT WITH (FORMAT csv);
           \echo ==photos==
           COPY (
+            -- same group number for identical photos, the sha256 itself is not exported
             SELECT user_id, id, created_at,
                    dense_rank() OVER (PARTITION BY user_id ORDER BY sha256) AS content_group
             FROM photos

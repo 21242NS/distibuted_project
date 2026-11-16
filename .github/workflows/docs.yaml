@@ -1,5 +1,5 @@
 name: Documentation
-on:
+on: # Trigger workflow when the docs change on main, or manually
   push:
     branches: [main]
     paths:
@@ -8,17 +8,17 @@ on:
       - ".github/workflows/docs.yaml"
   workflow_dispatch:
 
-permissions:
+permissions: # Set permissions for the workflow
   contents: read
   pages: write
   id-token: write
 
-concurrency:
+concurrency:  # only the latest docs build is deployed
   group: pages
   cancel-in-progress: true
 
 jobs:
-  build:
+  build: # Build the documentation site
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -28,14 +28,14 @@ jobs:
           cache: pip
           cache-dependency-path: docs/requirements.txt
       - run: pip install -r docs/requirements.txt
-      - run: mkdocs build --strict
+      - run: mkdocs build --strict  # fail on broken links
       - uses: actions/upload-pages-artifact@v3
         with:
           path: site
-  deploy:
+  deploy: # Deploy the documentation site
     needs: build
     runs-on: ubuntu-latest
-    environment:
+    environment:  # GitHub Pages target
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:

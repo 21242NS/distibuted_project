@@ -1,3 +1,4 @@
+# FastAPI API, the number of replicas is managed by the HPA (fixed to 3 in prod)
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -9,38 +10,38 @@ spec:
   strategy:
     type: RollingUpdate
     rollingUpdate:
-      maxUnavailable: 0                
-      maxSurge: 1
+      maxUnavailable: 0  # never remove a pod before its replacement is ready
+      maxSurge: 1  # create one new pod at a time
   template:                            
     metadata:
       labels:
         app: backend                   
     spec:
-      terminationGracePeriodSeconds: 45
+      terminationGracePeriodSeconds: 45  # leave time for the preStop and in-flight requests
       containers:
         - name: backend
-          image: photo-backend:v1      
+          image: photo-backend:v1  # tag replaced by scripts/lib.sh at deployment
           imagePullPolicy: IfNotPresent  
           env:
             - name: REDIS_URL
-              value: redis://redis:6379/0
+              value: redis://redis:6379/0  # cache, the API keeps working without it
           ports:
             - name: http
               containerPort: 8000
           lifecycle:
             preStop:
               exec:
-                command: ["sleep", "10"]
+                command: ["sleep", "10"]  # let the load balancer stop sending traffic before shutdown
           readinessProbe:
             httpGet:
-              path: /api/ready
+              path: /api/ready  # ready only when the database answers
               port: 8000
             periodSeconds: 5
           livenessProbe:
             httpGet:
-              path: /api/health
+              path: /api/health  # restart the container if the process stops answering
               port: 8000
             initialDelaySeconds: 5
           resources:
-            requests: { cpu: 50m, memory: 96Mi }
+            requests: { cpu: 50m, memory: 96Mi }  # requests are used by the scheduler and the HPA
             limits:   { cpu: 250m, memory: 256Mi }

@@ -2,6 +2,7 @@
 set -euo pipefail
 source "$(dirname "$0")/lib.sh"
 
+# usage: ./scripts/zero-downtime-check.sh [env] [seconds, 0 = until Ctrl+C]
 load_env "${1:-test}"
 DURATION="${2:-0}"
 require curl "brew install curl"
@@ -10,6 +11,7 @@ TOTAL=0
 ERRORS=0
 START=$(date +%s)
 
+# print the result when the script stops
 summary() {
   echo
   if [[ "$ERRORS" -eq 0 ]]; then
@@ -21,6 +23,7 @@ summary() {
 trap summary EXIT
 
 log "Requêtes en continu sur $URL/ et $URL/api/health (Ctrl+C pour arrêter)"
+# hit the frontend and the API continuously and count failures
 while [[ "$DURATION" -eq 0 || $(( $(date +%s) - START )) -lt "$DURATION" ]]; do
   for path in / /api/health; do
     code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 3 "$URL$path")" || code="000"

@@ -9,11 +9,13 @@ router = APIRouter(prefix="/api")
 
 @router.get("/health")
 async def health_check():
+    """liveness probe: the process answers"""
     return {"status": "ok"}
 
 
 @router.get("/ready")
 def readiness_check(response: Response):
+    """readiness probe: the database is reachable"""
     if engine is not None:
         try:
             with engine.connect() as conn:

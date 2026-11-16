@@ -7,10 +7,11 @@ import zlib
 
 WIDTH = 320
 HEIGHT = 240
-SECTIONS = ("schema", "users", "photos")
+SECTIONS = ("schema", "users", "photos")  # sections written by k8s/tasks/db-export.yaml
 
 
 def parse_export(lines):
+    """split the db-export output into schema version, user ids and photos"""
     sections = {name: [] for name in SECTIONS}
     current = None
     complete = False
@@ -39,10 +40,12 @@ def parse_export(lines):
 
 
 def chunk(kind, data):
+    """encode one PNG chunk"""
     return struct.pack(">I", len(data)) + kind + data + struct.pack(">I", zlib.crc32(kind + data))
 
 
 def placeholder_png(user_id, group):
+    """generate a gradient PNG, identical for photos that were duplicates in the source"""
     seed = hashlib.sha256(f"{user_id}:{group}".encode()).digest()
     red, green, blue = seed[0], seed[1], seed[2]
     rows = bytearray()
@@ -60,6 +63,7 @@ def placeholder_png(user_id, group):
 
 
 def build_sql(users, photos, password_hash, out):
+    """write the SQL that replaces the test data in a single transaction"""
     out.write("BEGIN;\n")
     out.write("TRUNCATE sessions, photos, users;\n")
     out.write("COPY users (id, username, password_hash) FROM STDIN;\n")
@@ -76,17 +80,18 @@ def build_sql(users, photos, password_hash, out):
             images[key] = placeholder_png(*key)
         content = images[key]
         counters[photo["user_id"]] = counters.get(photo["user_id"], 0) + 1
-        filename = f"photo-{counters[photo['user_id']]}.png"
+        filename = f"photo-{counters[photo['user_id']]}.png"  # real file names are not exported
         out.write(
             f"{photo['user_id']}\t{photo['id']}\t{filename}\timage/png\t{len(content)}\t"
             f"{hashlib.sha256(content).hexdigest()}\t\\\\x{content.hex()}\t{photo['created_at']}\n"
         )
     out.write("\\.\n")
-    out.write("SELECT setval('users_id_seq', COALESCE((SELECT max(id) FROM users), 0) + 1, false);\n")
+    out.write("SELECT setval('users_id_seq', COALESCE((SELECT max(id) FROM users), 0) + 1, false);\n")  # new signups must not reuse an imported id
     out.write("COMMIT;\n")
 
 
 def main():
+    """command line entry point"""
     parser = argparse.ArgumentParser(description="Construit le jeu de données de test à partir de l'export anonymisé")
     parser.add_argument("export", help="fichier produit par la tâche db-export")
     parser.add_argument("--password-hash", help="hash Argon2 du mot de passe commun aux comptes de test")

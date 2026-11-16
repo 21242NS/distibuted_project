@@ -1,3 +1,4 @@
+# tell Prometheus to scrape /metrics on the backend service
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
@@ -7,6 +8,6 @@ spec:
     matchLabels:
       app: backend
   endpoints:
-    - port: http
+    - port: http  # named port of the backend service
       path: /metrics
       interval: 15s

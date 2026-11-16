@@ -14,10 +14,12 @@ depends_on = None
 
 
 def _is_citus() -> bool:
+    """tell if the Citus extension is installed"""
     return bool(op.get_bind().execute(sa.text("SELECT 1 FROM pg_extension WHERE extname = 'citus'")).scalar())
 
 
 def upgrade() -> None:
+    """create the sessions table"""
     op.create_table(
         "sessions",
         sa.Column("token_hash", sa.String(64), primary_key=True),
@@ -28,8 +30,9 @@ def upgrade() -> None:
     op.create_index("ix_sessions_user_id", "sessions", ["user_id"])
 
     if _is_citus():
-        op.execute("SELECT create_distributed_table('sessions', 'token_hash')")
+        op.execute("SELECT create_distributed_table('sessions', 'token_hash')")  # sessions are looked up by token
 
 
 def downgrade() -> None:
+    """drop the sessions table"""
     op.drop_table("sessions")

@@ -14,11 +14,13 @@ depends_on = None
 
 
 def upgrade() -> None:
+    """add usernames and generate user ids with a sequence"""
     op.add_column("users", sa.Column("username", sa.String(20), nullable=True))
     op.create_unique_constraint("uq_users_username", "users", ["username"])
     op.alter_column("users", "email", existing_type=sa.String(255), nullable=True)
     op.alter_column("users", "name", existing_type=sa.String(100), nullable=True)
 
+    # start the sequence after the existing ids
     next_id = op.get_bind().execute(sa.text("SELECT COALESCE(MAX(id), 0) + 1 FROM users")).scalar()
     op.execute(f"CREATE SEQUENCE users_id_seq START WITH {int(next_id)}")
     op.execute("ALTER TABLE users ALTER COLUMN id SET DEFAULT nextval('users_id_seq')")
@@ -27,6 +29,7 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    """remove usernames and the id sequence"""
     op.execute("ALTER TABLE users ALTER COLUMN id DROP DEFAULT")
     op.execute("DROP SEQUENCE users_id_seq")
     op.alter_column("users", "name", existing_type=sa.String(100), nullable=False)

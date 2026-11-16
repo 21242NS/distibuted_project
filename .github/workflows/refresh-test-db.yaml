@@ -1,25 +1,25 @@
 name: Refresh de la base de test
-on:
+on: # Trigger workflow on manual dispatch
   workflow_dispatch:
-    inputs:
+    inputs: # Define input parameters for the workflow
       source:
         description: Environnement source
         type: choice
         options: [prod, dev]
         default: prod
 
-concurrency:
+concurrency: # Ensure only one refresh-test-db workflow runs at a time
   group: deploy-test
   cancel-in-progress: false
 
-permissions:
+permissions: # Set permissions for the workflow
   contents: read
 
-jobs:
+jobs: # Define the jobs for the workflow
   refresh:
-    runs-on: self-hosted
+    runs-on: self-hosted  # needs access to the prod and test clusters
     steps:
       - uses: actions/checkout@v4
       - env:
           SOURCE: ${{ inputs.source }}
-        run: ./scripts/refresh-test-db.sh "$SOURCE"
+        run: ./scripts/refresh-test-db.sh "$SOURCE"  # the input goes through an env var to avoid script injection

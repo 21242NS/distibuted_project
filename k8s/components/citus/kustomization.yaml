@@ -1,7 +1,8 @@
+# Citus database, included by the dev, test and prod overlays
 apiVersion: kustomize.config.k8s.io/v1alpha1
 kind: Component
 resources:
   - coordinator.yaml
   - workers.yaml
 patches:
-  - path: backend-db-patch.yaml
+  - path: backend-db-patch.yaml  # point the backend to the coordinator

@@ -22,6 +22,7 @@ def run_migrations_offline() -> None:
 
 
 def run_migrations_online() -> None:
+    """apply the migrations on the database"""
     engine = create_engine(os.environ["DATABASE_URL"], poolclass=pool.NullPool)
     with engine.connect() as connection:
         context.configure(connection=connection, target_metadata=target_metadata)

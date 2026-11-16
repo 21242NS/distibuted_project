@@ -1,3 +1,4 @@
+# keep at least one frontend pod during node maintenance
 apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:

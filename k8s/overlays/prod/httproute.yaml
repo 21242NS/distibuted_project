@@ -1,3 +1,4 @@
+# Gateway API route on the shared gateway of the school cluster
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
@@ -5,18 +6,18 @@ metadata:
   namespace: team3
 spec:
   parentRefs:
-    - name: main-gateway
+    - name: main-gateway  # gateway managed by the school in the infra namespace
       namespace: infra
   hostnames:
-    - team3.laboinfo-ecam.be
+    - team3.laboinfo-ecam.be  # public hostname of the team
   rules:
     - matches:
-        - path: { type: PathPrefix, value: /api }
+        - path: { type: PathPrefix, value: /api }  # API routes
       backendRefs:
         - name: backend
           port: 8000
     - matches:
-        - path: { type: PathPrefix, value: / }
+        - path: { type: PathPrefix, value: / }  # static pages
       backendRefs:
         - name: frontend
           port: 80

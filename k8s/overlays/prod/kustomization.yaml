@@ -1,18 +1,21 @@
+# prod: school cluster (namespace team3), images from GHCR
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 namespace: team3
 resources:
   - ../../base
-  - httproute.yaml
+  - httproute.yaml  # route through the shared gateway
 components:
   - ../../components/citus
 patches:
+  # no Ingress controller on the school cluster: replaced by the HTTPRoute
   - patch: |-
       $patch: delete
       apiVersion: networking.k8s.io/v1
       kind: Ingress
       metadata:
         name: photos
+  # the team3 account cannot create HPAs or PDBs
   - patch: |-
       $patch: delete
       apiVersion: autoscaling/v2
@@ -31,6 +34,7 @@ patches:
       kind: PodDisruptionBudget
       metadata:
         name: frontend
+  # fixed number of backend pods instead of the HPA
   - patch: |-
       - op: add
         path: /spec/replicas
@@ -38,6 +42,7 @@ patches:
     target:
       kind: Deployment
       name: backend
+# pull the images from GHCR
 images:
   - name: photo-backend
     newName: ghcr.io/21242ns/photo-backend

@@ -1,15 +1,17 @@
+# headless service: stable DNS name citus-coordinator-0.citus-coordinator
 apiVersion: v1
 kind: Service
 metadata:
   name: citus-coordinator
-  labels: { app: citus-coordinator, tier: database }
+  labels: { app: citus-coordinator, tier: database }  # tier=database is applied first by deploy_database
 spec:
-  clusterIP: None
+  clusterIP: None  # headless, required by the StatefulSet
   selector: { app: citus-coordinator }
   ports:
     - name: postgres
       port: 5432
 ---
+# Citus coordinator: receives the queries and routes them to the shards on the workers
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
@@ -17,7 +19,7 @@ metadata:
   labels: { app: citus-coordinator, tier: database }
 spec:
   serviceName: citus-coordinator
-  replicas: 1
+  replicas: 1  # one coordinator
   selector:
     matchLabels: { app: citus-coordinator }
   template:
@@ -32,14 +34,14 @@ spec:
               containerPort: 5432
           env:
             - { name: POSTGRES_DB, value: photos }
-            - { name: POSTGRES_HOST_AUTH_METHOD, value: trust }
-            - { name: PGDATA, value: /var/lib/postgresql/data/pgdata }
+            - { name: POSTGRES_HOST_AUTH_METHOD, value: trust }  # no password, the database is only reachable inside the cluster
+            - { name: PGDATA, value: /var/lib/postgresql/data/pgdata }  # subfolder, the volume root contains lost+found
           readinessProbe:
             exec: { command: ["pg_isready", "-h", "127.0.0.1", "-U", "postgres", "-d", "photos"] }
             periodSeconds: 5
           livenessProbe:
             exec: { command: ["pg_isready", "-h", "127.0.0.1", "-U", "postgres", "-d", "photos"] }
-            initialDelaySeconds: 30
+            initialDelaySeconds: 30  # leave time for PostgreSQL recovery after a restart
             periodSeconds: 10
             failureThreshold: 6
           resources:
@@ -48,10 +50,10 @@ spec:
           volumeMounts:
             - name: data
               mountPath: /var/lib/postgresql/data
-  volumeClaimTemplates:
+  volumeClaimTemplates:  # one persistent volume per pod, kept when the pod is recreated
     - metadata:
         name: data
       spec:
         accessModes: [ReadWriteOnce]
         resources:
-          requests: { storage: 1Gi }
+          requests: { storage: 1Gi }  # 1 GiB per node

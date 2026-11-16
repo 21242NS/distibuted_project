@@ -1,14 +1,15 @@
+# internal address of the API, used by the ingress and scraped by Prometheus
 apiVersion: v1
 kind: Service
 metadata:
   name: backend
   labels:
-    app: backend
+    app: backend  # label used by the ServiceMonitor
 spec:
   type: ClusterIP
   selector:
-    app: backend
+    app: backend  # send traffic to every ready backend pod
   ports:
-    - name: http
+    - name: http  # port name referenced by the ServiceMonitor
       port: 8000
       targetPort: 8000

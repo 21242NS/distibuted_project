@@ -2,9 +2,11 @@
 set -euo pipefail
 source "$(dirname "$0")/lib.sh"
 
+# quick check that the API and the frontend answer
 URL="${1:-http://dev.photos.localhost}"
 require curl "brew install curl"
 
+# GET a path, retry 5 times, and expect a 200 containing the given text
 check() {
   local path="$1" expected="$2" body code
   for _ in 1 2 3 4 5; do

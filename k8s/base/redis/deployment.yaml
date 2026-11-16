@@ -1,3 +1,4 @@
+# Redis cache for sessions and photos, data can be lost without impact
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -6,7 +7,7 @@ metadata:
     app: redis
     tier: cache
 spec:
-  replicas: 1
+  replicas: 1  # single instance, a cache does not need replication
   selector:
     matchLabels:
       app: redis
@@ -22,7 +23,7 @@ spec:
         tier: cache
     spec:
       securityContext:
-        runAsNonRoot: true
+        runAsNonRoot: true  # run without root rights
         runAsUser: 999
         runAsGroup: 1000
         fsGroup: 1000
@@ -31,24 +32,24 @@ spec:
           image: redis:7.4-alpine@sha256:c5d34a98396a4775e223c74e929162c35c5a2182901ba26b50ade939941ce14b
           args:
             - --maxmemory
-            - 96mb
+            - 96mb  # memory limit of the cache, below the container limit
             - --maxmemory-policy
-            - allkeys-lru
+            - allkeys-lru  # evict the least recently used keys when full
             - --save
-            - ""
+            - ""  # no snapshot on disk
             - --appendonly
-            - "no"
+            - "no"  # no append-only file either
           ports:
             - name: redis
               containerPort: 6379
           securityContext:
             allowPrivilegeEscalation: false
-            readOnlyRootFilesystem: true
+            readOnlyRootFilesystem: true  # nothing is written outside /data
             capabilities:
               drop: ["ALL"]
           readinessProbe:
             exec:
-              command: ["redis-cli", "ping"]
+              command: ["redis-cli", "ping"]  # ready when Redis answers PING
             periodSeconds: 5
           livenessProbe:
             tcpSocket:
@@ -63,4 +64,4 @@ spec:
               mountPath: /data
       volumes:
         - name: data
-          emptyDir: {}
+          emptyDir: {}  # temporary volume, emptied when the pod restarts

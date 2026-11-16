@@ -1,21 +1,22 @@
+# single host: /api goes to the backend, everything else to the frontend
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: photos
 spec:
-  ingressClassName: traefik            
+  ingressClassName: traefik  # Traefik installed by scripts/setup-cluster.sh
   rules:
-    - host: photos.localhost               
+    - host: photos.localhost  # replaced by dev. or test. in the overlays
       http:
         paths:
-          - path: /api                
+          - path: /api  # API routes
             pathType: Prefix
             backend:
               service:
                 name: backend
                 port:
                   number: 8000
-          - path: /                    
+          - path: /  # static pages
             pathType: Prefix
             backend:
               service:

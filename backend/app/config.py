@@ -1,11 +1,14 @@
 import os
 
+# database connection string (Citus coordinator)
 DATABASE_URL = os.getenv("DATABASE_URL")
 
+# session cookie settings
 SESSION_TTL_HOURS = int(os.getenv("SESSION_TTL_HOURS", "24"))
 SESSION_COOKIE_NAME = "session"
 SESSION_COOKIE_SECURE = os.getenv("SESSION_COOKIE_SECURE", "false").lower() == "true"
 
+# Redis cache settings, TTLs in seconds
 REDIS_URL = os.getenv("REDIS_URL")
 SESSION_CACHE_SECONDS = int(os.getenv("SESSION_CACHE_SECONDS", "120"))
 PHOTO_LIST_CACHE_SECONDS = int(os.getenv("PHOTO_LIST_CACHE_SECONDS", "300"))

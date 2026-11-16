@@ -14,10 +14,12 @@ depends_on = None
 
 
 def _is_citus() -> bool:
+    """tell if the Citus extension is installed (false on plain PostgreSQL in tests)"""
     return bool(op.get_bind().execute(sa.text("SELECT 1 FROM pg_extension WHERE extname = 'citus'")).scalar())
 
 
 def upgrade() -> None:
+    """create the users and photos tables"""
     op.create_table(
         "users",
         sa.Column("id", sa.Integer, primary_key=True, autoincrement=False),
@@ -39,6 +41,7 @@ def upgrade() -> None:
     op.create_index("ix_photos_user_sha256", "photos", ["user_id", "sha256"])
 
     if _is_citus():
+        # users is replicated on every node, photos is sharded by user
         op.execute("SELECT create_reference_table('users')")
         op.execute("SELECT create_distributed_table('photos', 'user_id')")
 
@@ -46,5 +49,6 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    """drop the users and photos tables"""
     op.drop_table("photos")
     op.drop_table("users")

@@ -1,6 +1,7 @@
 const signupForm = document.getElementById("signup-form");
 const signupFeedback = document.getElementById("feedback");
 
+// check the form before calling the API
 function validateSignup(username, password, confirm) {
     if (!USERNAME_RULE.test(username)) return MESSAGES.usernameFormat;
     if (!PASSWORD_RULE.test(password)) return MESSAGES.passwordFormat;
@@ -8,6 +9,7 @@ function validateSignup(username, password, confirm) {
     return null;
 }
 
+// submit the signup form and redirect on success
 async function handleSignup(event) {
     event.preventDefault();
     const username = signupForm.username.value.trim();
@@ -32,6 +34,7 @@ async function handleSignup(event) {
     window.location.assign(safeNextPage());
 }
 
+// skip the form when the user is already logged in
 async function initSignupPage() {
     if (await initSession()) {
         window.location.replace(safeNextPage());

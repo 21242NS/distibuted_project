@@ -15,23 +15,28 @@ from app.models import User, UserSession
 
 @dataclass(frozen=True)
 class CurrentUser:
+    """authenticated user attached to a request"""
     id: int
     username: str | None
 
 
 def _hash_token(token: str) -> str:
+    """hash a session token, the raw token is never stored"""
     return hashlib.sha256(token.encode()).hexdigest()
 
 
 def _cache_key(token_hash: str) -> str:
+    """Redis key of a session"""
     return f"session:{token_hash}"
 
 
 def _as_utc(moment: datetime) -> datetime:
+    """treat naive datetimes as UTC"""
     return moment if moment.tzinfo else moment.replace(tzinfo=timezone.utc)
 
 
 def open_session(db: Session, user: User, response: Response) -> None:
+    """create a session in the database and set the cookie"""
     token = secrets.token_urlsafe(32)
     expires_at = datetime.now(timezone.utc) + timedelta(hours=SESSION_TTL_HOURS)
     db.add(UserSession(token_hash=_hash_token(token), user_id=user.id, expires_at=expires_at))
@@ -48,6 +53,7 @@ def open_session(db: Session, user: User, response: Response) -> None:
 
 
 def close_session(db: Session, token: str | None, response: Response) -> None:
+    """delete the session from the database and the cache"""
     if token:
         token_hash = _hash_token(token)
         db.execute(delete(UserSession).where(UserSession.token_hash == token_hash))
@@ -57,6 +63,7 @@ def close_session(db: Session, token: str | None, response: Response) -> None:
 
 
 def user_from_token(db: Session, token: str | None) -> CurrentUser | None:
+    """resolve a session token to a user, Redis first then the database"""
     if not token:
         return None
     token_hash = _hash_token(token)
@@ -76,6 +83,7 @@ def user_from_token(db: Session, token: str | None) -> CurrentUser | None:
     if user is None:
         return None
 
+    # never cache a session longer than it is valid
     ttl = int(min(SESSION_CACHE_SECONDS, remaining.total_seconds()))
     cache.set_json(_cache_key(token_hash), {"id": user.id, "username": user.username}, ttl)
     return CurrentUser(id=user.id, username=user.username)
@@ -85,6 +93,7 @@ def require_user(
     db: Session = Depends(get_db),
     token: str | None = Cookie(default=None, alias=SESSION_COOKIE_NAME),
 ) -> CurrentUser:
+    """FastAPI dependency that rejects unauthenticated requests"""
     user = user_from_token(db, token)
     if user is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")

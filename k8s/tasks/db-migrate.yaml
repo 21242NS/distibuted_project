@@ -1,13 +1,14 @@
+# one-shot task: alembic migrations, run before the rolling update by run_migrations
 apiVersion: v1
 kind: Pod
 metadata:
   name: db-migrate
   labels: { app: db-migrate, tier: migration }
 spec:
-  restartPolicy: Never
+  restartPolicy: Never  # a task runs once, it is never restarted
   containers:
     - name: migrate
-      image: BACKEND_IMAGE
+      image: BACKEND_IMAGE  # replaced by the new backend image, so the migrations match the code
       imagePullPolicy: IfNotPresent
       command: ["alembic", "upgrade", "head"]
       env:

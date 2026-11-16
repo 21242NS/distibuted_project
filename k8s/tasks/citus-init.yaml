@@ -1,32 +1,36 @@
+# one-shot task: register the coordinator and the workers, run by init_citus in scripts/lib.sh
 apiVersion: v1
 kind: Pod
 metadata:
   name: citus-init
   labels: { app: citus-init, tier: task }
 spec:
-  restartPolicy: Never
+  restartPolicy: Never  # a task runs once, it is never restarted
   containers:
     - name: init
       image: citusdata/citus:alpine@sha256:982a8483148d62b7d0dfaf3014f341543f53078e94dc47241a19b4fcc2391e00
       env:
-        - { name: WORKERS, value: "WORKER_COUNT" }
+        - { name: WORKERS, value: "WORKER_COUNT" }  # replaced by the number of workers at deployment
       command: ["sh", "-c"]
       args:
         - |
           set -e
           until pg_isready -q -h citus-coordinator -U postgres -d photos; do sleep 2; done
+          # wait until every worker accepts connections
           i=0
           while [ $i -lt $WORKERS ]; do
             until pg_isready -q -h citus-worker-$i.citus-workers -U postgres -d photos; do sleep 2; done
             i=$((i + 1))
           done
           sql() { psql -v ON_ERROR_STOP=1 -qAt -h citus-coordinator -U postgres -d photos -c "$1"; }
+          # register the coordinator and every worker
           sql "SELECT citus_set_coordinator_host('citus-coordinator-0.citus-coordinator', 5432);" >/dev/null
           i=0
           while [ $i -lt $WORKERS ]; do
             sql "SELECT citus_add_node('citus-worker-$i.citus-workers', 5432);" >/dev/null
             i=$((i + 1))
           done
+          # every new shard is stored on 2 workers
           sql "ALTER SYSTEM SET citus.shard_replication_factor = 2;" >/dev/null
           sql "SELECT pg_reload_conf();" >/dev/null
           echo "workers actifs : $(sql 'SELECT count(*) FROM citus_get_active_worker_nodes();')"

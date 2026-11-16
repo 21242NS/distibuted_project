@@ -8,6 +8,7 @@ class Base(DeclarativeBase):
     """Classe parente de tous les modèles (tables)."""
 
 
+# pool_pre_ping drops dead connections after a database restart
 engine = (
     create_engine(DATABASE_URL, pool_pre_ping=True, connect_args={"connect_timeout": 3})
     if DATABASE_URL
