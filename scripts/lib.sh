@@ -101,10 +101,19 @@ deploy_database() {
   ok "base de données prête"
 }
 
+CITUS_INIT_ANNOTATION="photos.team3/citus-initialized-workers"
+
 init_citus() {
-  local workers
+  local workers initialized
   workers="$(k get statefulset citus-worker -n "$NAMESPACE" -o jsonpath='{.spec.replicas}')"
+  initialized="$(k get statefulset citus-worker -n "$NAMESPACE" \
+    -o jsonpath="{.metadata.annotations.${CITUS_INIT_ANNOTATION//./\\.}}")"
+  if [[ "$initialized" == "$workers" && -z "${FORCE_CITUS_INIT:-}" ]]; then
+    ok "Citus déjà initialisé avec $workers workers : tâche ignorée (FORCE_CITUS_INIT=1 pour la relancer)"
+    return
+  fi
   run_task citus-init "s#WORKER_COUNT#${workers}#" "initialisation de Citus"
+  k annotate statefulset citus-worker -n "$NAMESPACE" --overwrite "${CITUS_INIT_ANNOTATION}=${workers}" >/dev/null
 }
 
 run_migrations() {

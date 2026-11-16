@@ -32,5 +32,5 @@ spec:
           echo "workers actifs : $(sql 'SELECT count(*) FROM citus_get_active_worker_nodes();')"
           echo "réplication des shards : $(sql 'SHOW citus.shard_replication_factor;')"
       resources:
-        requests: { cpu: 50m, memory: 64Mi }
+        requests: { cpu: 20m, memory: 32Mi }
         limits:   { cpu: 500m, memory: 256Mi }

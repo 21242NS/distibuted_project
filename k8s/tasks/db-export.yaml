@@ -30,5 +30,5 @@ spec:
           COMMIT;
           SQL
       resources:
-        requests: { cpu: 50m, memory: 64Mi }
+        requests: { cpu: 20m, memory: 32Mi }
         limits:   { cpu: 500m, memory: 256Mi }
